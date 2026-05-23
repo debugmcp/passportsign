@@ -1,0 +1,29 @@
+{
+  "name": "@passportsign/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "passportsign CLI — bind, verify, rebuild.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "passportsign": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "cli": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@passportsign/core": "workspace:*",
+    "commander": "^12.1.0",
+    "ora": "^8.1.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/qrcode-terminal": "^0.12.2"
+  }
+}
