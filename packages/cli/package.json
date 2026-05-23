@@ -14,11 +14,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "cli": "tsx src/index.ts",
+    "day0": "tsx src/day0.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@passportsign/core": "workspace:*",
+    "@zkpassport/sdk": "^0.15.1",
     "commander": "^12.1.0",
     "ora": "^8.1.0",
     "qrcode-terminal": "^0.12.0"
