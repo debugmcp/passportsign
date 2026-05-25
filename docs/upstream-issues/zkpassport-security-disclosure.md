@@ -1,19 +1,15 @@
 # Private security disclosure — DO NOT post publicly
 
-Send privately to a zkPassport maintainer. Suggested addresses to try, in
-order:
+**Channel (per proposed policy in [zkpassport/zkpassport-packages#202](https://github.com/zkpassport/zkpassport-packages/pull/202)):**
 
-1. `security@zkpassport.id` (convention; may or may not exist)
-2. Direct email to a maintainer found via their GitHub commit history on
-   [zkpassport-packages](https://github.com/zkpassport/zkpassport-packages/graphs/contributors)
-3. A Discord/Twitter DM to the official zkPassport account, asking for a
-   private security email
-4. If none of the above bear fruit within a week, file a GitHub issue
-   marked **[SECURITY]** with the *abstract* version below (gap + impact)
-   and ask them to triage privately before adding details.
+- Submit via **[GitHub Private Vulnerability Reporting](https://github.com/zkpassport/zkpassport-packages/security/advisories/new)**.
+- If PVR is still gated on the repo, send `zkpassport-security-firstcontact.md`
+  to `security@aztec-labs.com` first to ask them to enable it.
 
+Paste the body below into the GitHub advisory form (Title + Description).
 If they confirm receipt, allow at least 30 days before any public
-discussion.
+discussion (you can mark it as such in the form's "Severity" and
+"Affected products" fields when relevant).
 
 ---
 
