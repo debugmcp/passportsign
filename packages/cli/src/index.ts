@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 
+import { runBindCommand } from './commands/bind.js';
 import { runVerifyCommand } from './commands/verify.js';
 
 const program = new Command()
@@ -13,9 +14,9 @@ program
   .argument('<github_username>')
   .option('--country', 'disclose issuing country in the attestation')
   .description('Bind a GitHub account to a passport-holding human via zkPassport, logged to Rekor.')
-  .action(() => {
-    console.error('bind: not implemented yet (Day 7)');
-    process.exit(2);
+  .action(async (githubUsername: string, opts: { country?: boolean }) => {
+    const code = await runBindCommand(githubUsername, { country: opts.country ?? false });
+    process.exit(code);
   });
 
 program

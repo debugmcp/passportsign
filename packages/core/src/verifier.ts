@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { type PassportsignBundle, validateBundle } from './bundle.js';
 import { type RekorClient } from './log/rekor.js';
 import { hashLeaf, verifyConsistency, verifyInclusion } from './merkle.js';
+import { unpackSdkPayload } from './sdk-payload.js';
 
 export type CheckResult = 'pass' | 'fail' | 'skipped';
 
@@ -38,22 +39,41 @@ export interface BundleVerifyResult {
    */
   root_consistency: CheckResult;
   /**
-   * SDK proof verification — Day 7 work. Always `'pending_day_7'` until
-   * the bundle schema is extended.
+   * SDK proof verification. `'skipped'` when no SDK verifier is injected.
+   * `'pass'` when the SDK validates the proofs AND the returned
+   * uniqueIdentifier matches the statement's predicate.
    */
-  sdk_proof: 'pending_day_7';
+  sdk_proof: CheckResult;
   /**
    * `'pass'` only when every enabled check passes; `'fail'` if any check
-   * fails; `'pending'` when everything else passes but `sdk_proof` is
-   * still pending Day 7.
+   * fails; `'pending'` when one or more checks are `'skipped'`.
    */
   overall: 'pass' | 'fail' | 'pending';
   errors: string[];
 }
 
+export interface SdkVerifyInput {
+  proofs: unknown[];
+  originalQuery: unknown;
+  queryResult: unknown;
+  scope?: string;
+  devMode?: boolean;
+}
+
+export interface SdkVerifyResult {
+  verified: boolean;
+  uniqueIdentifier: string | undefined;
+}
+
+export interface SdkVerifier {
+  verify(input: SdkVerifyInput): Promise<SdkVerifyResult>;
+}
+
 export interface VerifyBundleDeps {
   /** Inject a Rekor client to enable hash_match / inclusion / consistency checks. */
   rekor?: RekorClient;
+  /** Inject a zkPassport SDK verifier to enable the sdk_proof check. */
+  sdkVerifier?: SdkVerifier;
 }
 
 function hexToBytes(hex: string): Uint8Array {
@@ -101,12 +121,19 @@ export async function verifyBundle(
     hash_match: 'skipped',
     inclusion_proof: 'skipped',
     root_consistency: 'skipped',
-    sdk_proof: 'pending_day_7',
+    sdk_proof: 'skipped',
     overall: 'pending',
     errors: [],
   };
 
+  // SDK proof verification (independent of rekor) — runs first because
+  // it can be done purely from the bundle.
+  if (deps.sdkVerifier) {
+    result.sdk_proof = await runSdkVerification(bundle, deps.sdkVerifier, result.errors);
+  }
+
   if (!deps.rekor) {
+    result.overall = computeOverall(result);
     return result;
   }
 
@@ -217,10 +244,74 @@ export async function verifyBundle(
     result.root_consistency = 'fail';
   }
 
-  // 5. overall: pass only when nothing failed; pending while sdk_proof is Day 7 work.
-  const fails = [result.hash_match, result.inclusion_proof, result.root_consistency].filter(
-    (s) => s === 'fail',
-  );
-  result.overall = fails.length > 0 ? 'fail' : 'pending';
+  result.overall = computeOverall(result);
   return result;
+}
+
+async function runSdkVerification(
+  bundle: PassportsignBundle,
+  sdkVerifier: SdkVerifier,
+  errors: string[],
+): Promise<CheckResult> {
+  let payload;
+  try {
+    payload = unpackSdkPayload(bundle.proof_blob);
+  } catch (err) {
+    errors.push(
+      `failed to unpack SDK payload from bundle.proof_blob: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return 'fail';
+  }
+
+  let sdkResult: SdkVerifyResult;
+  try {
+    sdkResult = await sdkVerifier.verify({
+      proofs: payload.proofs,
+      originalQuery: payload.original_query,
+      queryResult: payload.query_result,
+      devMode: payload.dev_mode,
+    });
+  } catch (err) {
+    errors.push(`SDK verify threw: ${err instanceof Error ? err.message : String(err)}`);
+    return 'fail';
+  }
+
+  if (sdkResult.verified !== true) {
+    errors.push(`SDK reported verified=${String(sdkResult.verified)}`);
+    return 'fail';
+  }
+
+  // The returned uniqueIdentifier must match the statement's predicate.
+  let statementUniqueId: string | undefined;
+  try {
+    const statementBytes = Buffer.from(bundle.statement, 'hex').toString('utf8');
+    const parsed = JSON.parse(statementBytes) as {
+      predicate?: { unique_identifier?: string };
+    };
+    statementUniqueId = parsed.predicate?.unique_identifier;
+  } catch {
+    statementUniqueId = undefined;
+  }
+
+  if (!statementUniqueId) {
+    errors.push('could not extract unique_identifier from bundle.statement');
+    return 'fail';
+  }
+  if (sdkResult.uniqueIdentifier !== statementUniqueId) {
+    errors.push(
+      `SDK uniqueIdentifier ${String(sdkResult.uniqueIdentifier)} does not match statement.predicate.unique_identifier ${statementUniqueId}`,
+    );
+    return 'fail';
+  }
+
+  return 'pass';
+}
+
+function computeOverall(r: BundleVerifyResult): 'pass' | 'fail' | 'pending' {
+  const all = [r.hash_match, r.inclusion_proof, r.root_consistency, r.sdk_proof];
+  if (all.some((s) => s === 'fail')) return 'fail';
+  if (all.every((s) => s === 'pass')) return 'pass';
+  return 'pending';
 }

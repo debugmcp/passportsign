@@ -99,8 +99,24 @@ export {
 } from './merkle.js';
 
 export {
+  packSdkPayload,
+  unpackSdkPayload,
+  type PackedSdkPayload,
+  type SdkPayload,
+} from './sdk-payload.js';
+
+export {
+  renderBadgeMarkdown,
+  renderBadgeSvg,
+  type BadgeInput,
+} from './badge.js';
+
+export {
   verifyBundle,
   type BundleVerifyResult,
   type CheckResult,
+  type SdkVerifier,
+  type SdkVerifyInput,
+  type SdkVerifyResult,
   type VerifyBundleDeps,
 } from './verifier.js';

@@ -105,7 +105,7 @@ describe('verifyBundle — happy path (online)', () => {
     expect(r.hash_match).toBe('pass');
     expect(r.inclusion_proof).toBe('pass');
     expect(r.root_consistency).toBe('pass');
-    expect(r.sdk_proof).toBe('pending_day_7');
+    expect(r.sdk_proof).toBe('skipped');
     expect(r.overall).toBe('pending');
     expect(r.errors).toEqual([]);
   });
@@ -118,9 +118,97 @@ describe('verifyBundle — without rekor client', () => {
     expect(r.hash_match).toBe('skipped');
     expect(r.inclusion_proof).toBe('skipped');
     expect(r.root_consistency).toBe('skipped');
+    expect(r.sdk_proof).toBe('skipped');
     expect(r.overall).toBe('pending');
   });
 });
+
+describe('verifyBundle — with sdkVerifier', () => {
+  it('sdk_proof passes when SDK validates and uniqueIdentifier matches', async () => {
+    // The other checks need a fully consistent bundle (entry body
+    // matching the new statement). Here we isolate sdk_proof by running
+    // WITHOUT rekor — sdk_proof is independent.
+    const { bundle, statementUniqueId, sdkPayloadB64 } = makeBundleWithSdk();
+    const sdkVerifier = {
+      verify: vi.fn(async () => ({ verified: true, uniqueIdentifier: statementUniqueId })),
+    };
+    bundle.proof_blob = sdkPayloadB64;
+    const r = await verifyBundle(bundle, { sdkVerifier });
+    expect(r.sdk_proof).toBe('pass');
+    expect(sdkVerifier.verify).toHaveBeenCalledTimes(1);
+  });
+
+  it('sdk_proof fails when SDK reports verified=false', async () => {
+    const { bundle, client, statementUniqueId, sdkPayloadB64 } = makeBundleWithSdk();
+    bundle.proof_blob = sdkPayloadB64;
+    const sdkVerifier = {
+      verify: vi.fn(async () => ({ verified: false, uniqueIdentifier: statementUniqueId })),
+    };
+    const r = await verifyBundle(bundle, { rekor: client, sdkVerifier });
+    expect(r.sdk_proof).toBe('fail');
+    expect(r.overall).toBe('fail');
+  });
+
+  it('sdk_proof fails when SDK uniqueIdentifier differs from statement', async () => {
+    const { bundle, client, sdkPayloadB64 } = makeBundleWithSdk();
+    bundle.proof_blob = sdkPayloadB64;
+    const sdkVerifier = {
+      verify: vi.fn(async () => ({ verified: true, uniqueIdentifier: 'a-different-id' })),
+    };
+    const r = await verifyBundle(bundle, { rekor: client, sdkVerifier });
+    expect(r.sdk_proof).toBe('fail');
+    expect(r.overall).toBe('fail');
+  });
+
+  it('sdk_proof fails when proof_blob is not a valid SdkPayload', async () => {
+    const { bundle, client } = makeBundleWithSdk();
+    bundle.proof_blob = 'AAAA'; // not a SdkPayload
+    const sdkVerifier = {
+      verify: vi.fn(),
+    };
+    const r = await verifyBundle(bundle, { rekor: client, sdkVerifier });
+    expect(r.sdk_proof).toBe('fail');
+    expect(sdkVerifier.verify).not.toHaveBeenCalled();
+  });
+});
+
+// Helper: build a bundle whose proof_blob is a valid SdkPayload and whose
+// statement carries the matching unique_identifier.
+function makeBundleWithSdk() {
+  const statementUniqueId = '13902036709356453377929569764273223082772964910104338589480118024404105097567';
+  // Statement object with the unique_identifier under predicate
+  const statementObj = {
+    _type: 'https://in-toto.io/Statement/v1',
+    subject: [{ name: 'github.com/johnf', digest: { sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' } }],
+    predicateType: 'https://passportsign.dev/personhood/v1',
+    predicate: {
+      unique_identifier: statementUniqueId,
+      issuing_country: 'CAN',
+      disclosure_level: 'personhood+country',
+      proof_blob_sha256: '0a'.repeat(32),
+      gist_url: 'https://gist.github.com/johnf/abc',
+      gist_content_sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      scope: 'passportsign.dev:nationality-disclose:1',
+      zkpassport_sdk_version: '0.15.1',
+    },
+  };
+  const statementHex = Buffer.from(JSON.stringify(statementObj)).toString('hex');
+
+  // SdkPayload serialized via packSdkPayload-equivalent JSON
+  const sdkPayload = {
+    sdk_version: '0.15.1',
+    proofs: [{ vkeyHash: '0x12ef', name: 'sig_check', version: '0.18.0' }],
+    original_query: { nationality: { disclose: true } },
+    query_result: { nationality: { disclose: { result: 'CAN' } } },
+    dev_mode: false,
+  };
+  const sdkPayloadB64 = Buffer.from(JSON.stringify(sdkPayload)).toString('base64');
+
+  const { bundle, client } = makeBundleAndClient();
+  // override statement
+  bundle.statement = statementHex;
+  return { bundle, client, statementUniqueId, sdkPayloadB64 };
+}
 
 describe('verifyBundle — failure paths', () => {
   it('payloadHash mismatch → hash_match fails, overall fails', async () => {

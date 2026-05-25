@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "cli": "tsx src/index.ts",
-    "day0": "tsx src/day0.ts",
+    "bind": "tsx src/index.ts bind",
+    "verify": "tsx src/index.ts verify",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
   },
