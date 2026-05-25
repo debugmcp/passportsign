@@ -89,6 +89,63 @@ After the gate passes on a happy path, probe the realistic setup:
 
 ---
 
+## Day 5 — Rekor smoke test (PASS, 2026-05-25)
+
+One throwaway in-toto entry submitted to `rekor.sigstore.dev` to pin
+the shape of the production Rekor client.
+
+**Living evidence (permanent record):**
+
+```
+UUID:            108e9186e8c5677a083861840595aefe2c2b960164213d8a439199a631d8df3a2ec2b2cf6a27d326
+logIndex:        1630811209
+integratedTime:  1779739312
+logID:           c0d23d6ad406973f9559f3ba2d1ca01f84147d8ffc5b8445c224f98b9591801d
+predicateType:   https://dev.passportsign.dev/smoke-test/v1
+```
+
+Inspect at:
+https://rekor.sigstore.dev/api/v1/log/entries/108e9186e8c5677a083861840595aefe2c2b960164213d8a439199a631d8df3a2ec2b2cf6a27d326
+
+### What we learned (for the production client)
+
+- **Entry type version**: `intoto` v0.0.2 is the accepted shape on the
+  public instance.
+- **Body shape gotchas** (different from the published OpenAPI schema):
+  - `payload` and `sig` are **double-base64** at the Rekor API
+    boundary (the DSSE base64 wrapped again as `strfmt.Base64`).
+  - `publicKey` is single-base64 over the PEM bytes.
+  - `keyid` must be **omitted entirely** if empty (Rekor strips it,
+    sending `""` causes the canonicalised entry hash to mismatch).
+  - `hash` and `payloadHash` are **required despite readOnly markers**.
+    - `payloadHash` = sha256(canonical statement bytes).
+    - `hash` = sha256(canonical JSON of `{payloadType, payload-base64,
+      signatures:[{sig-base64, publicKey: PEM-string}]}`). Note
+      publicKey is raw PEM **string** for this hash, not base64.
+- **Signature algorithm**: ECDSA P-256 over SHA-256, DER-encoded.
+  Ed25519 was rejected (500 "error generating canonicalised entry").
+- **Response shape** (POST and GET): top-level wrapper is `{ <uuid>: {
+  attestation, body, integratedTime, logID, logIndex, verification } }`.
+- **`verification`** holds `inclusionProof` and `signedEntryTimestamp`.
+  `inclusionProof.hashes` is ~18 deep at the current treeSize
+  (~1.5 G entries).
+- **`/api/v1/log/entries/retrieve`** by UUID works. By
+  `hash: sha256:<payloadHash>` returned 0 entries for our submission —
+  meaning **`rebuild` cannot enumerate our entries by payload hash on
+  the public log.** Documented as deferral against acceptance #4 below.
+
+### Acceptance criterion #4 — decision
+
+Per the Day 5 finding above, the **`rebuild` command is explicitly
+deferred to v1**. Rekor's public `/retrieve` endpoint doesn't index by
+predicate type or payload hash for our entries, so reconstructing the
+SQLite cache from log entries at public-log scale would require
+walking the full log by `logIndex` — not feasible for a CLI.
+
+v0 closure criterion #4 (revised): "rebuild deferred to v1; rationale
+captured in Day 5 evidence above. The local cache is best-effort and
+re-derivable in v1 via richer indexing once available."
+
 ## Day 7 — real-passport E2E (revised criteria, 6 items)
 
 To be filled in when Day 7 runs.

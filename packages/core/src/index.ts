@@ -64,3 +64,29 @@ export {
   type PrepareBindingInput,
   type PreparedBinding,
 } from './bind.js';
+
+export {
+  DSSE_VERSION,
+  IN_TOTO_PAYLOAD_TYPE,
+  pae,
+  signEnvelope,
+  type DsseEnvelope,
+  type DsseSignature,
+  type SignEnvelopeResult,
+} from './dsse.js';
+
+export {
+  DEFAULT_REKOR_BASE_URL,
+  PublicSigstoreRekorClient,
+  buildIntotoEntryBody,
+  type InclusionProof,
+  type PublicSigstoreRekorClientOptions,
+  type RekorClient,
+  type RekorEntryResponse,
+} from './log/rekor.js';
+
+export {
+  submitBinding,
+  type SubmitBindingDeps,
+  type SubmitBindingResult,
+} from './submit.js';
