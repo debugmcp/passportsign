@@ -1,9 +1,9 @@
 /**
  * Public API of @passportsign/core.
  *
- * Day 1-2 surface: canonical JCS, in-toto Statement v1 builder, and the
- * binding.passportsign.json bundle format. All pure / I/O-bounded to the
- * bundle file. No SDK, no network.
+ * Day 1-2: canonical JCS + in-toto statement + bundle format.
+ * Day 3-4: §4 error vocabulary + nonce + GitHub gist check +
+ *          SQLite cache + bind orchestrator (no Rekor yet).
  */
 
 export {
@@ -30,3 +30,37 @@ export {
   type PassportsignBundle,
   type RekorBundleFields,
 } from './bundle.js';
+
+export {
+  ERROR_CODES,
+  PassportsignError,
+  type ErrorCode,
+} from './errors.js';
+
+export {
+  NONCE_BYTES,
+  NONCE_BASE32_LENGTH,
+  base32Encode,
+  generateNonce,
+} from './nonce.js';
+
+export {
+  checkGistControl,
+  type CheckGistOptions,
+  type GistEvidence,
+} from './github.js';
+
+export {
+  openCache,
+  type BindingRow,
+  type PassportsignCache,
+  type Status,
+} from './storage/sqlite.js';
+
+export {
+  prepareBinding,
+  type PrepareBindingDeps,
+  type PrepareBindingInit,
+  type PrepareBindingInput,
+  type PreparedBinding,
+} from './bind.js';

@@ -23,10 +23,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@truestamp/canonify": "1.0.3",
-    "better-sqlite3": "^11.6.0"
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12"
+    "@truestamp/canonify": "1.0.3"
   }
 }
