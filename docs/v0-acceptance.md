@@ -1,65 +1,119 @@
-# v0 acceptance — manual E2E checklist
+# v0 acceptance evidence
 
-This file is the living record of v0 acceptance. It begins with the Day 0
-SDK prototype gate. The Day 7 walkthrough fills in the rest.
+Manual checklist + living evidence for passportsign v0. Updated as each
+gate is exercised.
+
+---
 
 ## Day 0 — SDK prototype (HARD GATE)
 
-**Status:** ☐ pending
+Script: `packages/cli/src/prototype-day0.ts`
 
-The four success criteria (all must pass; any failure is a re-plan
-trigger, not "keep going"):
-
-| # | Criterion | Pass? | Evidence |
-|---|---|---|---|
-| 1 | QR renders in terminal | ☐ | |
-| 2 | Phone scan reaches the SDK bridge (zkPassport relay) | ☐ | |
-| 3 | Proof comes back and parses cleanly | ☐ | |
-| 4 | SDK verifier accepts the parsed proof (`verified: true`) | ☐ | |
-
-**How to run:**
+Run:
 
 ```
-pnpm install
-pnpm --filter @passportsign/cli run day0
-# or, to also exercise the optional nationality disclosure path:
-pnpm --filter @passportsign/cli run day0 -- --country
+pnpm --filter @passportsign/cli exec tsx src/prototype-day0.ts
 ```
 
-What the script does: instantiates `ZKPassport("dev.passportsign.dev")`,
-builds a request with scope `dev.passportsign.dev:day0-prototype`,
-renders the resulting URL as a terminal QR code, and waits up to 5
-minutes for the SDK callbacks. Prints a structured pass/fail summary at
-the end.
+### Pre-flight
 
-**Plan deviations discovered during prototype:**
+- [ ] **ZKPassport mobile app installed** on a phone with NFC.
+  - [iOS App Store](https://apps.apple.com/us/app/zkpassport/id6477371975) — requires iOS 15.2+.
+  - [Google Play](https://play.google.com/store/apps/details?id=app.zkpassport.zkpassport).
+- [ ] **Physical NFC-enabled passport** (ICAO 9303). Most modern e-passports work.
+- [ ] **Phone has internet access.** Does NOT need to be on the same LAN
+      as the laptop — the SDK uses a hosted relay
+      (`@obsidion/bridge` + websocket).
 
-(Fill in after running. Examples of things to flag here:
-- The SDK's "bridge" model (relay) vs the plan's assumed "localhost HTTP
-  bridge." If the relay model holds, acceptance criterion #6 and the
-  README's network-constraint documentation need revision.
-- Any required setup steps not anticipated.
-- Behavior under poor network or backgrounded terminal.)
+### Four-point gate (all must PASS to proceed)
 
-## Day 7 — full acceptance walkthrough
+| # | Criterion                                  | Status | Notes |
+|---|--------------------------------------------|--------|-------|
+| 1 | QR renders in terminal                     | PASS (2026-05-25) | `qrcode-terminal` renders the SDK's URL. |
+| 2 | Phone scan reaches the SDK's bridge        | PASS (2026-05-25) | Yellow "Trusted Domain" badge confirmed in ZKPassport mobile app. |
+| 3 | Proof comes back and parses cleanly        | PASS (2026-05-25) | 4 proofs received: `sig_check_dsc_tbs_*`, `data_check_integrity_*`, `sig_check_id_data_tbs_*`, `disclose_bytes`. |
+| 4 | SDK verifier accepts the proof             | PASS (2026-05-25) | `verified: true`. Unique identifier `13902036709356453377929569764273223082772964910104338589480118024404105097567` (scoped to `passportsign.dev:nationality-disclose`). Nationality disclosed: `CAN`. |
 
-To be filled out after Day 7 real-passport bind against public Sigstore
-Rekor with scope `dev.passportsign.dev:johnf`.
+Any failure on 1–4 is a re-plan trigger.
 
-The six revised acceptance criteria:
+### Day 0 — root-cause notes (so the next person isn't stuck for hours)
 
-| # | Criterion | Pass? | Evidence |
-|---|---|---|---|
-| 1 | Full binding flow against a real passport produces a `binding.passportsign.json` bundle plus a Rekor entry | ☐ | log_entry_hash: _TBD_ |
-| 2 | Second machine, given only the bundle, verifies with zero operator dependency | ☐ | |
-| 3 | Third party reading the public Sigstore Rekor log identifies the in-toto entry by predicateType, runs the SDK on the proof blob, confirms validity | ☐ | |
-| 4 | `passportsign rebuild` reconstructs the SQLite cache *or* the limitation is documented (per Day 5 finding on Rekor index) | ☐ | |
-| 5 | Canonical JCS test vectors pinned in `packages/core/test/fixtures/canonical-vectors.json` and the verifier CLI passes them | ☐ | |
-| 6 | README documents the actual network/setup requirements for running the CLI (per Day 0 + Day 0.5 findings) | ☐ | |
+The published `@zkpassport/sdk@0.15.1` does not work in a Node CLI out of
+the box. Three issues, all patched via `patches/@zkpassport__sdk@0.15.1.patch`
+(pinned in `pnpm-workspace.yaml` under `patchedDependencies`):
 
-**Real-passport Rekor entry hash (Day 7 evidence):**
+1. **`from 'buffer/'` (trailing slash)** — forces resolution to the
+   `buffer` polyfill the way browser bundlers expect; on Node ESM the
+   resolver flails through extensions and tsx ultimately tries
+   `buffer/index.jsx`, failing. Fix: drop the slash → uses Node's
+   built-in `buffer`.
+2. **Named import from `i18n-iso-countries`** — the package's
+   `entry-node.js` uses `module.exports = library` (assigned through a
+   variable) which Node's `cjs-module-lexer` can't statically analyze,
+   so `getAlpha3Code` etc. aren't surfaced as named exports. Fix:
+   default-import the module and destructure after.
+3. **Bridge `Origin` header defaults to `"nodejs"`** — `@obsidion/bridge`
+   sends `Origin: nodejs` when the SDK doesn't pass an `origin` option
+   to `Bridge.create`. The phone validates the WebSocket Origin against
+   the project's primary domain; `nodejs` ≠ `passportsign.dev`, so it
+   silently enters the "unrecognized" third state (no Trusted Domain
+   badge, no untrusted-warning, slider blocked). Fix: pass
+   `` origin: `https://${this.domain}` `` to `Bridge.create`. After the
+   patch the phone shows the Trusted Domain badge and proofs flow.
 
-`_TBD_`
+Upstream is one line each — worth filing as an issue/PR on
+[zkpassport-packages](https://github.com/zkpassport/zkpassport-packages).
+Open issue [#150](https://github.com/zkpassport/zkpassport-packages/issues/150)
+already reports symptom (3) without a known cause.
 
-Public log entries are forever; this hash is the living evidence that v0
-shipped.
+### zkPassport dashboard setup (one-time)
+
+- Project: `passportsign` at [dashboard.zkpassport.id](https://dashboard.zkpassport.id/)
+- Project ID: `9e5e0e19-216b-48ff-897b-764347517af2`
+- Domain: `passportsign.dev` (verified via DNS TXT `_zkpassport` =
+  `zkpassport-verify=passportsign.dev`)
+- Policy: `nationality-disclose` (discloses `nationality`)
+- Allowed origins: none (primary domain is implicit)
+
+### Day 0.5 — network-setup story
+
+After the gate passes on a happy path, probe the realistic setup:
+
+- [ ] Phone on mobile data (not WiFi). Does it still work? (Expected
+      yes — SDK uses a public relay.)
+- [ ] Laptop on a corporate / restrictive network (outbound HTTPS only).
+      Does the SDK's websocket negotiate? Document any required
+      egress allowlist (Obsidion bridge endpoints).
+- [ ] If anything requires a tunnel (ngrok or similar), document in
+      README.
+
+---
+
+## Day 7 — real-passport E2E (revised criteria, 6 items)
+
+To be filled in when Day 7 runs.
+
+1. **Bundle + Rekor entry produced from real passport.** TBD.
+2. **Second machine verifies via bundle only.** TBD.
+3. **Third party reads public Sigstore Rekor, identifies entry by
+   predicateType, verifies.** TBD.
+4. **`passportsign rebuild` reconstructs cache** (or documented
+   deferral per Day-5 finding). TBD.
+5. **Canonical-JCS test vectors pinned and verifier passes them.**
+   TBD.
+6. **README documents network constraints from Day 0.5.** TBD.
+
+### Living evidence
+
+Real-passport Rekor entry hash from Day 7 (committed here as permanent
+proof that v0 shipped):
+
+```
+<rekor entry uuid TBD>
+```
+
+Inspect it at:
+
+```
+https://rekor.sigstore.dev/api/v1/log/entries/<uuid TBD>
+```

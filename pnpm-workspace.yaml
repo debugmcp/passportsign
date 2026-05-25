@@ -1,2 +1,4 @@
 packages:
   - 'packages/*'
+patchedDependencies:
+  '@zkpassport/sdk@0.15.1': patches/@zkpassport__sdk@0.15.1.patch

@@ -5,12 +5,12 @@
   "description": "Shared binding state machine, canonical serialization, in-toto statements, bundles, GitHub gist check, zkPassport SDK wrapper, Rekor client, SQLite cache, and offline verifier for passportsign.",
   "license": "Apache-2.0",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -23,6 +23,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@truestamp/canonify": "1.0.3"
+    "@truestamp/canonify": "1.0.3",
+    "better-sqlite3": "^11.6.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12"
   }
 }
