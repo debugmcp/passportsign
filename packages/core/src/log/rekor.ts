@@ -39,9 +39,29 @@ export interface RekorEntryResponse {
   };
 }
 
+export interface RekorLogInfo {
+  /** Hex-encoded current root hash of the active tree. */
+  rootHash: string;
+  /** Number of entries currently in the active tree. */
+  treeSize: number;
+  /** Signed tree head (Rekor's signature over the current root + size). */
+  signedTreeHead: string;
+  /** Active tree ID (string per Rekor's API). */
+  treeID: string;
+}
+
+export interface RekorConsistencyProof {
+  /** Hex hashes proving treeSize=first is a prefix of treeSize=last. */
+  hashes: string[];
+  /** Hex root hash at the new size (informational; we verify against our own captured one). */
+  rootHash: string;
+}
+
 export interface RekorClient {
   submitIntoto(envelope: DsseEnvelope): Promise<RekorEntryResponse>;
   getEntry(uuid: string): Promise<RekorEntryResponse>;
+  getLogInfo(): Promise<RekorLogInfo>;
+  getConsistencyProof(firstSize: number, lastSize: number): Promise<RekorConsistencyProof>;
 }
 
 export interface PublicSigstoreRekorClientOptions {
@@ -85,6 +105,85 @@ export class PublicSigstoreRekorClient implements RekorClient {
       );
     }
     return parseEntryResponse(await response.json().catch(() => null));
+  }
+
+  async getLogInfo(): Promise<RekorLogInfo> {
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}/api/v1/log`);
+    } catch (err) {
+      throw new PassportsignError(
+        'log_submission_failed',
+        `Rekor log-info request failed: ${err instanceof Error ? err.message : String(err)}`,
+        err,
+      );
+    }
+    if (!response.ok) {
+      throw new PassportsignError(
+        'log_submission_failed',
+        `Rekor log-info returned ${response.status}`,
+      );
+    }
+    const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object') {
+      throw new PassportsignError('log_submission_failed', 'Rekor log-info returned non-object');
+    }
+    const rootHash = body['rootHash'];
+    const treeSize = body['treeSize'];
+    const signedTreeHead = body['signedTreeHead'];
+    const treeID = body['treeID'];
+    if (
+      typeof rootHash !== 'string' ||
+      typeof treeSize !== 'number' ||
+      typeof signedTreeHead !== 'string' ||
+      typeof treeID !== 'string'
+    ) {
+      throw new PassportsignError('log_submission_failed', 'Rekor log-info missing required fields');
+    }
+    return { rootHash, treeSize, signedTreeHead, treeID };
+  }
+
+  async getConsistencyProof(firstSize: number, lastSize: number): Promise<RekorConsistencyProof> {
+    let response: Response;
+    try {
+      response = await this.fetchImpl(
+        `${this.baseUrl}/api/v1/log/proof?firstSize=${firstSize}&lastSize=${lastSize}`,
+      );
+    } catch (err) {
+      throw new PassportsignError(
+        'log_submission_failed',
+        `Rekor consistency-proof request failed: ${err instanceof Error ? err.message : String(err)}`,
+        err,
+      );
+    }
+    if (!response.ok) {
+      throw new PassportsignError(
+        'log_submission_failed',
+        `Rekor consistency-proof returned ${response.status}`,
+      );
+    }
+    const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== 'object') {
+      throw new PassportsignError(
+        'log_submission_failed',
+        'Rekor consistency-proof returned non-object',
+      );
+    }
+    const hashes = body['hashes'];
+    const rootHash = body['rootHash'];
+    if (!Array.isArray(hashes) || !hashes.every((h) => typeof h === 'string')) {
+      throw new PassportsignError(
+        'log_submission_failed',
+        'Rekor consistency-proof has no hashes array',
+      );
+    }
+    if (typeof rootHash !== 'string') {
+      throw new PassportsignError(
+        'log_submission_failed',
+        'Rekor consistency-proof has no rootHash',
+      );
+    }
+    return { hashes: hashes as string[], rootHash };
   }
 
   private async postEntry(body: unknown): Promise<RekorEntryResponse> {

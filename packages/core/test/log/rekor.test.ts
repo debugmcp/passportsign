@@ -180,3 +180,68 @@ describe('PublicSigstoreRekorClient.getEntry', () => {
     });
   });
 });
+
+describe('PublicSigstoreRekorClient.getLogInfo', () => {
+  it('parses {rootHash, treeSize, signedTreeHead, treeID}', async () => {
+    const fetchImpl: typeof fetch = async (url) => {
+      expect(String(url)).toBe('https://rekor.sigstore.dev/api/v1/log');
+      return jsonResponse({
+        rootHash: 'abcd',
+        treeSize: 12345,
+        signedTreeHead: 'sig-bytes',
+        treeID: '1010101',
+      });
+    };
+    const client = new PublicSigstoreRekorClient({ fetch: fetchImpl });
+    const info = await client.getLogInfo();
+    expect(info).toEqual({
+      rootHash: 'abcd',
+      treeSize: 12345,
+      signedTreeHead: 'sig-bytes',
+      treeID: '1010101',
+    });
+  });
+
+  it('500 → log_submission_failed', async () => {
+    const fetchImpl: typeof fetch = async () => new Response('', { status: 500 });
+    const client = new PublicSigstoreRekorClient({ fetch: fetchImpl });
+    await expect(client.getLogInfo()).rejects.toMatchObject({ code: 'log_submission_failed' });
+  });
+
+  it('rejects malformed response missing required fields', async () => {
+    const fetchImpl: typeof fetch = async () =>
+      jsonResponse({ rootHash: 'abcd', treeSize: 'not-a-number' });
+    const client = new PublicSigstoreRekorClient({ fetch: fetchImpl });
+    await expect(client.getLogInfo()).rejects.toMatchObject({ code: 'log_submission_failed' });
+  });
+});
+
+describe('PublicSigstoreRekorClient.getConsistencyProof', () => {
+  it('happy path: passes firstSize/lastSize as query params and returns hashes', async () => {
+    const fetchImpl: typeof fetch = async (url) => {
+      expect(String(url)).toContain('firstSize=10');
+      expect(String(url)).toContain('lastSize=20');
+      return jsonResponse({ hashes: ['aa', 'bb', 'cc'], rootHash: 'newroot' });
+    };
+    const client = new PublicSigstoreRekorClient({ fetch: fetchImpl });
+    const p = await client.getConsistencyProof(10, 20);
+    expect(p.hashes).toEqual(['aa', 'bb', 'cc']);
+    expect(p.rootHash).toBe('newroot');
+  });
+
+  it('rejects malformed response', async () => {
+    const fetchImpl: typeof fetch = async () => jsonResponse({ hashes: 'not-an-array' });
+    const client = new PublicSigstoreRekorClient({ fetch: fetchImpl });
+    await expect(client.getConsistencyProof(1, 2)).rejects.toMatchObject({
+      code: 'log_submission_failed',
+    });
+  });
+
+  it('500 → log_submission_failed', async () => {
+    const fetchImpl: typeof fetch = async () => new Response('', { status: 500 });
+    const client = new PublicSigstoreRekorClient({ fetch: fetchImpl });
+    await expect(client.getConsistencyProof(1, 2)).rejects.toMatchObject({
+      code: 'log_submission_failed',
+    });
+  });
+});

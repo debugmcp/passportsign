@@ -57,6 +57,8 @@ function happyRekorClient(): RekorClient {
   return {
     submitIntoto: vi.fn(async () => response),
     getEntry: vi.fn(async () => response),
+    getLogInfo: vi.fn(),
+    getConsistencyProof: vi.fn(),
   };
 }
 
@@ -100,6 +102,8 @@ describe('submitBinding', () => {
         throw new PassportsignError('log_submission_failed', 'simulated 500');
       }),
       getEntry: vi.fn(),
+      getLogInfo: vi.fn(),
+      getConsistencyProof: vi.fn(),
     };
     await expect(submitBinding(makePrepared(), { rekor: failing })).rejects.toMatchObject({
       code: 'log_submission_failed',

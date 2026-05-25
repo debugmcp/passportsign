@@ -90,3 +90,17 @@ export {
   type SubmitBindingDeps,
   type SubmitBindingResult,
 } from './submit.js';
+
+export {
+  hashLeaf,
+  hashPair,
+  verifyConsistency,
+  verifyInclusion,
+} from './merkle.js';
+
+export {
+  verifyBundle,
+  type BundleVerifyResult,
+  type CheckResult,
+  type VerifyBundleDeps,
+} from './verifier.js';
