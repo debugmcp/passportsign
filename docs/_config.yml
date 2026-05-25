@@ -1,0 +1,16 @@
+title: passportsign
+description: Personhood attestations on the Sigstore transparency log.
+url: https://passportsign.dev
+
+theme: jekyll-theme-cayman
+
+# Suppress the default "View on GitHub" button (we link explicitly in body).
+show_downloads: false
+
+# Anchor headings so deep-links work cleanly.
+markdown: kramdown
+kramdown:
+  toc_levels: "2..3"
+
+# Keep the site self-contained — no analytics.
+google_analytics: null

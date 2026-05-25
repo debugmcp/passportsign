@@ -32,6 +32,11 @@ real-passport bind on the public Sigstore Rekor log:
 
   [![passportsign verified · CAN · 2026-05-25](docs/evidence/passportsign-badge.svg)](https://rekor.sigstore.dev/api/v1/log/entries/108e9186e8c5677a53b1918ed9b9bbe15194e42714fd3a3f8f0e163d3a22831120a4c540a332e151)
 
+That badge is **the v0-shipped evidence for `@cynarlab`** — the
+maintainer behind `debugmcp/mcp-debugger`. **Other users generate
+their own** by running `passportsign bind` (see Quick start below);
+your badge will have your own username, country, and date baked in.
+
 The companion bundle is at [`docs/evidence/binding.passportsign.json`](docs/evidence/binding.passportsign.json)
 — run `passportsign verify` against it to re-derive the proof yourself.
 

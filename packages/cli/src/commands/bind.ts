@@ -161,26 +161,45 @@ export async function runBindCommand(
   console.log(`✓ badge   → ${badgePath}`);
 
   // --- Success summary ---
+  const dateStr = issuedAt.toISOString().slice(0, 10);
+  const altSuffix = sdk.issuing_country
+    ? ` · ${sdk.issuing_country} · ${dateStr}`
+    : ` · ${dateStr}`;
+  const altText = `passportsign verified${altSuffix}`;
+  const rekorUrl = `https://rekor.sigstore.dev/api/v1/log/entries/${rekorEntry.uuid}`;
+
   console.log('');
   console.log('Done.');
   console.log('');
-  console.log('Embed in your GitHub profile README:');
+  console.log('────────────────────────────────────────────────');
+  console.log('Showing off your binding');
+  console.log('────────────────────────────────────────────────');
   console.log('');
-  const altSuffix = sdk.issuing_country
-    ? ` · ${sdk.issuing_country} · ${issuedAt.toISOString().slice(0, 10)}`
-    : ` · ${issuedAt.toISOString().slice(0, 10)}`;
+  console.log(`The badge file (${badgePath}) is a static SVG with your`);
+  console.log('username, country, and bind date already baked in. To use it:');
+  console.log('');
+  console.log(`1. Commit ${badgePath.split(/[\\/]/).pop()} to a repo you control. The natural`);
+  console.log(`   home is your "profile repo" — github.com/${githubUsername}/${githubUsername}`);
+  console.log(`   — which GitHub renders on your profile page.`);
+  console.log('');
+  console.log('2. Paste this into the README of that repo:');
+  console.log('');
   console.log(
-    `  ${renderBadgeMarkdown({
+    `     ${renderBadgeMarkdown({
       badge_path: './passportsign-badge.svg',
       log_entry_hash: rekorEntry.uuid,
-      alt_text: `passportsign verified${altSuffix}`,
+      alt_text: altText,
     })}`,
   );
   console.log('');
-  console.log('Or verify the bundle directly:');
-  console.log('  passportsign verify ./binding.passportsign.json');
+  console.log('   If you want to reference it from a DIFFERENT repo,');
+  console.log('   replace `./passportsign-badge.svg` with a raw URL like:');
+  console.log(`     https://raw.githubusercontent.com/<owner>/<repo>/main/passportsign-badge.svg`);
   console.log('');
-  console.log(`Public Rekor entry: https://rekor.sigstore.dev/api/v1/log/entries/${rekorEntry.uuid}`);
+  console.log('Verify the bundle yourself (or send it to a skeptic to verify):');
+  console.log(`  passportsign verify ${bundlePath}`);
+  console.log('');
+  console.log(`Public Rekor entry: ${rekorUrl}`);
 
   return 0;
 }
