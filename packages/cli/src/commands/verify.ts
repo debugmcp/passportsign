@@ -6,7 +6,10 @@ import {
   readBundle,
   verifyBundle,
   type CheckResult,
+  type SdkVerifier,
+  type VerifyBundleDeps,
 } from '@passportsign/core';
+import { ZKPassport } from '@zkpassport/sdk';
 
 export interface VerifyOptions {
   gistRecheck?: boolean;
@@ -33,10 +36,30 @@ export async function runVerifyCommand(
   }
 
   const useRekor = !options.noRekorRefetch;
-  const result = await verifyBundle(
-    bundle,
-    useRekor ? { rekor: new PublicSigstoreRekorClient() } : {},
-  );
+
+  // Build an SdkVerifier that delegates to a local ZKPassport instance.
+  // The SDK's verify() runs Barretenberg locally and doesn't hit the
+  // network for the cryptographic check itself, so this works for any
+  // bundle regardless of who issued it.
+  const zkPassport = new ZKPassport('passportsign.dev', { disableProofStorage: true });
+  const sdkVerifier: SdkVerifier = {
+    async verify(input) {
+      const r = await zkPassport.verify({
+        proofs: input.proofs as Parameters<typeof zkPassport.verify>[0]['proofs'],
+        originalQuery: input.originalQuery as Parameters<typeof zkPassport.verify>[0]['originalQuery'],
+        queryResult: input.queryResult as Parameters<typeof zkPassport.verify>[0]['queryResult'],
+        ...(input.scope !== undefined ? { scope: input.scope } : {}),
+        ...(input.devMode !== undefined ? { devMode: input.devMode } : {}),
+      });
+      return { verified: r.verified, uniqueIdentifier: r.uniqueIdentifier };
+    },
+  };
+
+  const deps: VerifyBundleDeps = {
+    sdkVerifier,
+    ...(useRekor ? { rekor: new PublicSigstoreRekorClient() } : {}),
+  };
+  const result = await verifyBundle(bundle, deps);
 
   console.log(`bundle:        ${bundlePath}`);
   console.log(`rekor entry:   ${bundle.rekor.log_entry_hash}`);
@@ -44,7 +67,7 @@ export async function runVerifyCommand(
   console.log(`  [${MARK[result.hash_match]}] statement hash matches Rekor's recorded payloadHash`);
   console.log(`  [${MARK[result.inclusion_proof]}] inclusion proof verifies against captured root`);
   console.log(`  [${MARK[result.root_consistency]}] captured root is consistent with current witnessed root`);
-  console.log(`  [${MARK[result.sdk_proof]}] zkPassport SDK accepts the proof  (Day 7 — pending bundle schema extension)`);
+  console.log(`  [${MARK[result.sdk_proof]}] zkPassport SDK accepts the proof + uniqueIdentifier matches statement`);
 
   if (options.gistRecheck) {
     const gistResult = await recheckGistLiveness(bundlePath, bundle);

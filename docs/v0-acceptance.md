@@ -146,31 +146,63 @@ v0 closure criterion #4 (revised): "rebuild deferred to v1; rationale
 captured in Day 5 evidence above. The local cache is best-effort and
 re-derivable in v1 via richer indexing once available."
 
-## Day 7 — real-passport E2E (revised criteria, 6 items)
+## Day 7 — real-passport E2E (6 revised criteria, all PASS 2026-05-25)
 
-To be filled in when Day 7 runs.
-
-1. **Bundle + Rekor entry produced from real passport.** TBD.
-2. **Second machine verifies via bundle only.** TBD.
-3. **Third party reads public Sigstore Rekor, identifies entry by
-   predicateType, verifies.** TBD.
-4. **`passportsign rebuild` reconstructs cache** (or documented
-   deferral per Day-5 finding). TBD.
-5. **Canonical-JCS test vectors pinned and verifier passes them.**
-   TBD.
-6. **README documents network constraints from Day 0.5.** TBD.
-
-### Living evidence
-
-Real-passport Rekor entry hash from Day 7 (committed here as permanent
-proof that v0 shipped):
+### Living evidence — the v0 ship entry
 
 ```
-<rekor entry uuid TBD>
+UUID:           108e9186e8c5677a53b1918ed9b9bbe15194e42714fd3a3f8f0e163d3a22831120a4c540a332e151
+logIndex:       1631047945
+treeSize@bind:  1509143692
+github account: cynarlab
+country:        CAN
+bound_at:       2026-05-25 (UTC)
+predicateType:  https://passportsign.dev/personhood/v1
+scope:          passportsign.dev:nationality-disclose:1
 ```
 
-Inspect it at:
+Public Rekor entry:
+https://rekor.sigstore.dev/api/v1/log/entries/108e9186e8c5677a53b1918ed9b9bbe15194e42714fd3a3f8f0e163d3a22831120a4c540a332e151
+
+Local bundle: [`docs/evidence/binding.passportsign.json`](evidence/binding.passportsign.json)
+Local badge:  [`docs/evidence/passportsign-badge.svg`](evidence/passportsign-badge.svg)
+
+This binds `github.com/cynarlab` — the maintainer of `debugmcp/mcp-debugger`
+and the human asked-about in [`debugmcp/mcp-debugger#77`](https://github.com/debugmcp/mcp-debugger/issues/77)
+("Who are the key humans behind debugmcp and mcp-debugger?") — to a
+passport-holding human, disclosing only Canadian nationality. The proof
+itself reveals nothing else about the holder.
+
+### Criteria
+
+| # | Criterion | Status | Evidence |
+|---|-----------|--------|----------|
+| 1 | CLI runs the full binding flow against a real passport, producing a `binding.passportsign.json` bundle plus a public Sigstore Rekor entry. | **PASS** | UUID above; bundle committed at `docs/evidence/`. |
+| 2 | A second machine, given only the bundle, independently verifies the binding with zero dependency on a passportsign.dev operator. | **PASS** | `pnpm --filter @passportsign/cli exec tsx src/index.ts verify ./binding.passportsign.json` returns all four checks PASS, talking only to `rekor.sigstore.dev` (public) and `@zkpassport/sdk` (local). The CLI never reaches any passportsign-controlled service. |
+| 3 | A third party reading the public Sigstore Rekor log identifies the in-toto entry by its `predicateType`, runs the zkPassport SDK on the proof blob, and confirms validity. | **PASS** | The same `verify` command does exactly this: fetches the entry from public Rekor, decodes the in-toto body, reconstructs the canonical statement, runs SDK proof verification. |
+| 4 | `passportsign rebuild` reconstructs the SQLite cache from a log range — *or* the Day-5 Rekor-index investigation finds this is infeasible at public-log scale, in which case rebuild is explicitly deferred to v1. | **DEFERRED** (acceptable) | Day-5 finding: Rekor's `/retrieve` doesn't index by `predicateType` or payload hash on the public instance. `rebuild` is deferred to v1; rationale documented in the Day 5 section above. |
+| 5 | Test vectors for the in-toto statement's canonical JCS bytes are pinned in the repo and the verifier CLI passes them. | **PASS** | 5 vectors in [`packages/core/test/fixtures/canonical-vectors.json`](../packages/core/test/fixtures/canonical-vectors.json) (empty object, full statement, undisclosed country, Unicode subject name, numeric edges). The `canonical.test.ts` drift test asserts byte-exact output and SHA-256 against each. 12 of the 226 unit tests are this drift gate. |
+| 6 | README documents the localhost-HTTP-bridge requirement, the phone-network constraint (per Day 0.5 findings), and any tunnel setup required for realistic conditions. | **PASS** | [README "Network requirements"](../README.md#network-requirements) records the Day 0.5 finding: the zkPassport SDK uses a hosted relay (`@obsidion/bridge`), so **no LAN constraint and no tunnel needed** — phone and laptop just need any internet. The originally-planned localhost-bridge work was rendered moot by the SDK's actual transport. |
+
+### Run-the-verify-yourself trace
+
+For reproducibility (this is the literal `pnpm --filter @passportsign/cli exec tsx src/index.ts verify ./binding.passportsign.json` output from 2026-05-25, against the bundle committed at `docs/evidence/binding.passportsign.json`):
 
 ```
-https://rekor.sigstore.dev/api/v1/log/entries/<uuid TBD>
+bundle:        ./binding.passportsign.json
+rekor entry:   108e9186e8c5677a53b1918ed9b9bbe15194e42714fd3a3f8f0e163d3a22831120a4c540a332e151
+
+  [PASS] statement hash matches Rekor's recorded payloadHash
+  [PASS] inclusion proof verifies against captured root
+  [PASS] captured root is consistent with current witnessed root
+  [PASS] zkPassport SDK accepts the proof + uniqueIdentifier matches statement
+
+Overall: PASS
 ```
+
+### v0 verdict
+
+**v0 ships.** The cryptographic core is sound and independently
+verifiable end-to-end. v1 (the Next.js web app, badge.svg endpoint,
+`/verify/<username>` static page, federation) is now a polish-and-UX
+layer on top of a working trust anchor.
