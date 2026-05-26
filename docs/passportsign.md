@@ -1,4 +1,4 @@
-# passportsign — spec v0.4
+# passportsign — spec v0.5
 
 A Sigstore-adjacent service that issues cryptographic attestations binding a
 GitHub account to a passport-holding human, without revealing the human's
@@ -10,6 +10,42 @@ Domains: `passportsign.dev` (primary), `passportsign.org` (mirror / canonical
 docs).
 
 > **Changelog**
+>
+> v0.5 (2026-05-26): v0 ship learnings folded in. v0 shipped
+> 2026-05-25 with a real-passport entry on public Sigstore Rekor
+> ([`108e9186…2e151`](https://rekor.sigstore.dev/api/v1/log/entries/108e9186e8c5677a53b1918ed9b9bbe15194e42714fd3a3f8f0e163d3a22831120a4c540a332e151)),
+> CLI published to npm as `@passportsign/cli@0.1.0`. The following
+> sections updated based on what actually happened, not what the
+> design anticipated:
+> - §3 step 5: dashboard registration of the operator's domain in
+>   the zkPassport developer dashboard is a prerequisite for the
+>   Trusted Domain badge to appear on the phone. The phone app
+>   validates the bridge `Origin` against the registered domain.
+> - §8: added a new Sybil-resistance limit — Origin forgeability.
+>   Anyone with Node and the SDK can forge a request claiming to be
+>   from any registered project's domain. Mitigated by a project-side
+>   signing key in spec v1; today, the badge alone is weaker
+>   evidence than the click-through Rekor entry. Open upstream PR:
+>   [zkpassport/zkpassport-packages#212](https://github.com/zkpassport/zkpassport-packages/pull/212).
+> - §10 row 4 (`passportsign rebuild`): explicitly deferred to v1.
+>   Rekor's public `/api/v1/log/entries/retrieve` doesn't index by
+>   `predicateType` or payload hash, so reconstructing the cache by
+>   walking the log isn't feasible at scale on the public instance.
+> - §14: the localhost-HTTP-bridge concern is moot. The zkPassport
+>   SDK uses a hosted relay (`@obsidion/bridge` over WebSocket); the
+>   phone and laptop don't need to be on the same LAN.
+> - §14: Rekor in-toto v0.0.2 submission has undocumented
+>   requirements (double-base64 `payload`/`sig`, single-base64
+>   `publicKey`, omit empty `keyid`, required `hash`+`payloadHash`
+>   fields despite the schema's `readOnly` markers, ECDSA P-256
+>   only). All baked into the published client.
+> - §14: bundle's `proof_blob` is a structured payload (canonical
+>   JSON of `{sdk_version, proofs, original_query, query_result,
+>   dev_mode}`, base64-encoded), not opaque proof bytes. The SDK's
+>   `verify()` method is what runs against this payload.
+> - §11 v1 direction shifted from "Postgres + Next.js web app" to
+>   "edge-function badge service + browser bind flow." See
+>   [`docs/roadmap.md`](roadmap.md) for the full v0.5 / v1.0 / v2 plan.
 >
 > v0.4:
 > - Repositioned as Sigstore-adjacent. Entries are in-toto attestations
@@ -154,9 +190,20 @@ cannot retroactively lie about what happened.
    nonce (cryptographically random, ≥128 bits, base32 or base58 encoded for
    gist-friendliness), e.g. `zkm-johnf-7f3a9c1e...`, stores a pending row,
    returns: `{ binding_id, nonce, scope, qr_payload, expires_at }`.
-2. **Scope.** Scope passed to zkPassport is `passportsign.dev:johnf`. This
-   makes the resulting `uniqueIdentifier` deterministic for this passport
-   under this service's namespace, and unlinkable to any other zkPassport use.
+2. **Scope.** Scope passed to zkPassport is locked by the policy the
+   operator registered in the zkPassport developer dashboard
+   (`https://dashboard.zkpassport.id`); for the v0 reference operator
+   this is `passportsign.dev:nationality-disclose:1`. This makes the
+   resulting `uniqueIdentifier` deterministic for this passport under
+   this service's namespace, and unlinkable to any other zkPassport use.
+   **The operator's domain MUST be registered and DNS-verified in the
+   zkPassport developer dashboard before bindings can succeed** —
+   without this the phone app won't show the Trusted Domain badge and
+   the Confirm slider stays disabled. The bind flow includes opening
+   a transient WebSocket bridge via `@obsidion/bridge`; the SDK must
+   pass `origin: \`https://${operator-domain}\`` so the phone's bridge
+   handshake recognizes the request (see also §14 and
+   [zkpassport/zkpassport-packages#212](https://github.com/zkpassport/zkpassport-packages/pull/212)).
 3. **GitHub control.** UI instructs the user to create a public gist named
    `passportsign.txt` containing exactly the nonce (no surrounding
    whitespace, no trailing newline that wasn't in the supplied string).
@@ -524,6 +571,24 @@ interchangeable.
 - **Coerced bindings.** Real passport, real account, real-looking binding,
   but the human was social-engineered into binding an account they don't
   actually control.
+- **Origin-forged badge UI** *(v0.5 limitation, mitigation in flight).*
+  The phone app's "Trusted Domain" check, as of zkPassport SDK 0.15.1,
+  is satisfied by a string comparison between the WebSocket `Origin`
+  header and the URL's `d=` parameter — both creator-controlled. From
+  a Node CLI, an attacker can send any registered domain's name as
+  `Origin` and the phone will display the corresponding project's name
+  and the Trusted Domain badge. A phishing attacker can therefore
+  *render the badge to look right* for any registered project's
+  domain, even without controlling that domain. After the victim
+  confirms, the attacker captures a valid disclosure proof under the
+  victim's identity, scoped to the impersonated project. The harm is
+  bounded — the proof is only useful against that specific project,
+  and the spec's revocation path (§7) handles cleanup — but it's a
+  real phishing vector against badge UX trust. The intended long-term
+  fix is server-side request signing with a project-registered key
+  (out of scope for v0). The short-term reality: **treat the badge
+  image as a thumbnail and the click-through Rekor entry as the real
+  evidence**.
 
 ### What the badge can and can't be used for
 
@@ -608,46 +673,54 @@ the historical entry remains visible for auditability.
 | 6 | Cap on bindings per passport | No cap at v1. Linkage is transparent; abuse is detectable. Add a soft cap (e.g. 10) only if patterns appear. |
 | 7 | Username casing | Normalize to lowercase in cache; case-insensitive in API; preserve user's casing for display. |
 | 8 | GitHub username renames | Detect on stale check; mark stale; require re-verification under the new username. Old log entries remain. |
-| 9 | Transparency log: Sigstore Rekor vs self-hosted | v1: piggyback on the public Sigstore Rekor instance. Migrate to self-hosted or co-hosted only if rate limits or governance become limiting. |
+| 9 | Transparency log: Sigstore Rekor vs self-hosted | **DECIDED for v0:** public Sigstore Rekor (`rekor.sigstore.dev`), `intoto` v0.0.2 entry type, custom `predicateType` `https://passportsign.dev/personhood/v1`. Confirmed working with a real-passport entry shipped 2026-05-25. |
 | 10 | Witness set | v1: rely on Sigstore's existing witnesses. v2: solicit additional independent witnesses (OSS foundations, security research orgs). |
 | 11 | Coarser country disclosure (EU / region) | Out of scope for v1. zkPassport supports predicates; UI complexity not yet justified. |
+| 12 | `passportsign rebuild` feasibility | **DEFERRED to v1** (was hoped to be in v0). The public Sigstore Rekor `/api/v1/log/entries/retrieve` endpoint does not index by `predicateType` or payload hash, so walking the log to reconstruct the cache isn't feasible at public-log scale (~1.5G entries as of v0 ship). Practical paths for v1: a dedicated lightweight index built off the user-side `passportsign-index.json` convention (see [`docs/roadmap.md`](roadmap.md) v0.5.5), or a side index built off a Rekor mirror with a richer query API. |
+| 13 | Operator architecture for v1 hosted services | **REVISED:** the spec's v0.4 plan of "Postgres + Next.js" is replaced by an edge-function architecture (Cloudflare Worker or equivalent) for the hosted badge service and a small browser bind flow. Reduces cost to near-zero at hobby scale, sharpens the "operator is a convenience, not a trust authority" property (no persistent state), and makes federation fall out for free. See [`docs/roadmap.md`](roadmap.md) v0.5.4 / v1.0.1. |
+| 14 | Trusted Domain UX trust model | **OPEN.** The phone app's "Trusted Domain" check is currently satisfied by a string match between two creator-supplied fields (WebSocket `Origin` header and the URL's `d=` parameter). The fix is server-side request signing with a project-registered key; out of scope for v0. See §8 for the limitation and disclosure status. |
 
 ---
 
 ## 11. Roadmap
 
-### v0 (private, ~1 week)
+See [`docs/roadmap.md`](roadmap.md) for the live roadmap with milestones
+and dependencies. Summary:
 
-- CLI tool that runs the binding flow against the zkPassport SDK, performs
-  the GitHub gist check, submits to the log, and prints the resulting log
-  entry hash and inclusion proof.
-- Single user (the author) as proof of concept.
-- No web app yet — CLI exercises every code path.
+### v0 — SHIPPED 2026-05-25
 
-### v1 (public, ~3–4 weeks)
+- CLI tool that runs the full binding flow against the zkPassport SDK,
+  performs the GitHub gist check, submits to public Sigstore Rekor, and
+  emits a `binding.passportsign.json` bundle plus a self-contained
+  inline SVG badge.
+- Published to npm: [`@passportsign/cli`](https://www.npmjs.com/package/@passportsign/cli)
+  and [`@passportsign/core`](https://www.npmjs.com/package/@passportsign/core).
+- Real-passport entry on the public log:
+  [`108e9186…2e151`](https://rekor.sigstore.dev/api/v1/log/entries/108e9186e8c5677a53b1918ed9b9bbe15194e42714fd3a3f8f0e163d3a22831120a4c540a332e151).
+- Landing page live at https://passportsign.dev.
+- v0 acceptance evidence: [`docs/v0-acceptance.md`](v0-acceptance.md).
 
-- Public web flow with gist-based GitHub control check.
-- Selective country disclosure.
-- Submission to public Rekor log.
-- Postgres cache + read endpoints.
-- `/verify/:username` static page with in-browser SDK + inclusion-proof
-  verification.
-- Privacy policy, ToS, open-source repo.
+### v0.5 — polish + first hosted endpoint
 
-### v1.5
+Slim CLI (post upstream SDK fix), revocation command, the convention
+for self-hosted indexes, and the first hosted endpoint:
+`passportsign.dev/badge/<user>.svg` rendered by an edge function with
+live state (active / stale / revoked). No central database; anyone
+can run the same Worker.
 
-- Slack / Discord bots resolving `@user` mentions to badge state with log
-  links.
-- Additional badge styles (compact, country, linked-count).
-- Mirroring tooling — anyone can run a read-only mirror from the log.
-- Reference standalone verifier CLI (zero dependency on passportsign.dev).
+### v1.0 — web binding flow + federation
 
-### v2
+`passportsign.dev/bind` browser flow so non-CLI users can bind.
+Documented federation: anyone can stand up a `passportsign`-shaped
+operator against the same Rekor log. Standalone verifier package,
+mention-resolver bots, additional badge styles.
 
-- Federated operators submitting to the same log.
-- Org-level bindings (one human attested across an org).
-- Optional coarser country disclosure (region / continent).
-- Independent witness recruitment beyond Sigstore default.
+### v2 — federation + org bindings + witnesses
+
+Federated operators producing first-class equivalent bindings on the
+shared log. Org-level bindings. Coarser country disclosure
+(region / continent). Additional independent witnesses beyond
+Sigstore's defaults.
 
 ---
 
@@ -746,8 +819,8 @@ that were hashed. The bundle is the portable unit that carries both:
 ```json
 {
   "bundle_format_version": 1,
-  "statement":     "<canonical JCS bytes of the in-toto statement>",
-  "proof_blob":    "<base64 of zkPassport proof>",
+  "statement":     "<canonical JCS bytes of the in-toto statement, hex>",
+  "proof_blob":    "<base64(canonical JCS bytes of SdkPayload)>",
   "rekor": {
     "log_entry_hash":         "<rekor entry UUID>",
     "inclusion_proof":        { /* merkle path */ },
@@ -755,6 +828,24 @@ that were hashed. The bundle is the portable unit that carries both:
   }
 }
 ```
+
+The `proof_blob` field carries a structured **SdkPayload** (canonical
+JSON, base64-encoded for transport), not opaque proof bytes:
+
+```ts
+interface SdkPayload {
+  sdk_version: string;          // version of @zkpassport/sdk that produced the proofs
+  proofs: ProofResult[];        // SDK's array of per-circuit proofs (4 minimum)
+  original_query: Query;        // the SDK request shape that was issued
+  query_result: QueryResult;    // what the SDK actually disclosed
+  dev_mode: boolean;            // mock vs real passport
+}
+```
+
+This lets the verifier re-run the SDK's `verify()` method on the same
+inputs and check it returns `verified: true` plus matching
+`uniqueIdentifier`. The statement's `proof_blob_sha256` is the sha256 of
+the canonical JCS bytes (i.e., what gets base64-decoded from `proof_blob`).
 
 `passportsign bind` emits the bundle as a primary output. `passportsign
 verify <bundle.json>` consumes it and runs four checks: SDK validates
@@ -790,11 +881,12 @@ consumers know how to compare codes.
 
 ### Rekor entry type
 
-Use the `intoto` Rekor entry type, with the in-toto Statement above as
-the attestation payload and a custom `predicateType` URI we publish
-ourselves (`https://passportsign.dev/personhood/v1`). This is honest
-about what the entry is — an attestation, not a signature — and slots
-into existing Sigstore tooling for free.
+Use the `intoto` Rekor entry type, version **`v0.0.2`**, with the
+in-toto Statement above as the attestation payload and a custom
+`predicateType` URI we publish ourselves
+(`https://passportsign.dev/personhood/v1`). This is honest about what
+the entry is — an attestation, not a signature — and slots into
+existing Sigstore tooling for free.
 
 `hashedrekord` is the wrong fit: it's shaped for
 `(artifact, signature, public_key)`. A zkPassport proof isn't a
@@ -802,9 +894,46 @@ signature over the artifact, and there's no signer public key in the
 classical sense (verification keys are baked into the proving system).
 Forcing this into `hashedrekord` would be semantically misleading.
 
-Confirm the exact in-toto entry-type version against the live Rekor API
-at start of Day 5 (entry-type versions evolve) and then lock it in
-config.
+#### Submission body shape (the actual quirks)
+
+The Rekor `intoto` v0.0.2 schema is misleading in a few places. These
+are confirmed against the live `rekor.sigstore.dev` instance (v0 ship
+2026-05-25); all of them are baked into the published `@passportsign/core`
+client:
+
+- **`payload` and `sig` are double-base64.** The DSSE envelope already
+  base64-encodes payload and signature; Rekor's `strfmt.Base64` then
+  re-encodes those strings as bytes for the API. Net: the value you
+  send is `base64(base64(canonical-statement))` for `payload` and
+  `base64(base64(raw-sig))` for `sig`.
+- **`publicKey` is single-base64** over the PEM bytes (raw PEM text,
+  no double-wrap). The asymmetry with `sig` is because PEM is already
+  textual.
+- **`keyid` must be omitted entirely when empty.** Sending `keyid: ""`
+  causes Rekor's canonicalised entry to differ from the client's; the
+  submission fails with the opaque `error generating canonicalized entry`.
+- **`hash` and `payloadHash` are required despite the schema's
+  `readOnly` markers.** Rekor verifies them against its own
+  computation as a consistency check. `payloadHash` is sha256 of the
+  raw payload bytes; `hash` is sha256 of a canonical JSON of a
+  specific envelope variant where `publicKey` is the raw PEM string
+  (not base64).
+- **Signing algorithm: ECDSA P-256 over SHA-256**, DER-encoded. The
+  ephemeral key the operator generates is throwaway — the DSSE
+  signature is a Rekor schema requirement, not a trust mechanism.
+  Ed25519 is rejected (`500 error generating canonicalized entry`).
+
+#### Inclusion + consistency
+
+The Rekor entry's response wrapper includes `verification.inclusionProof`
+(`{ checkpoint, hashes, logIndex, rootHash, treeSize }`) and
+`verification.signedEntryTimestamp`. The bundle captures the entry
+hash plus the inclusion proof. Verification (a) recomputes the leaf
+hash from the canonicalised entry body (`sha256(0x00 || body)` per RFC
+6962), (b) walks the proof path to confirm it lands at the captured
+root, and (c) fetches a current witnessed root and verifies a
+consistency proof against the captured root so log rewrites are
+detectable.
 
 A custom Rekor entry type would be cleaner long-term (typed predicate
 semantics, better tooling integration) but is more work and requires
@@ -812,17 +941,31 @@ Sigstore ecosystem participation. Revisit at v2.
 
 ### Mobile / desktop handoff UX
 
-The trickiest UX is the moment between "user clicks bind" on desktop and
-"user opens zkPassport on phone" and "proof returns to desktop." The SDK
-handles the bridge but the binding UI must:
+The zkPassport SDK uses a **hosted relay** (`@obsidion/bridge` over
+WebSocket): the phone and laptop don't need to be on the same LAN.
+Anywhere with internet on both sides works (corporate WiFi on laptop,
+mobile data on phone, etc.). The Day-0.5 concern about needing a
+localhost HTTP bridge / ngrok tunnel is moot — that came from a
+mis-read of the SDK before we tested.
+
+The CLI binding UI does still need to:
 
 - Render a QR scannable from a phone at typical reading distance.
-- Poll for proof completion (don't require user to refresh).
+- Poll for proof completion via the SDK callbacks (don't require
+  user to refresh).
 - Time out gracefully (~5 min) and let the user re-render the QR.
 - Survive desktop tab being backgrounded during the phone-side flow.
-- Handle the case where the user completes the proof on phone but the
-  desktop session has expired — the SDK proof should be re-submittable
-  via the CLI as a fallback.
+
+**Operator domain prerequisite** *(v0.5 finding):* the operator's
+domain MUST be registered in the zkPassport developer dashboard and
+DNS-verified, and the SDK must forward
+`origin: \`https://${operator-domain}\`` to `Bridge.create`, before the
+phone app will show the Trusted Domain badge and enable the Confirm
+slider. Until upstream
+[zkpassport/zkpassport-packages#212](https://github.com/zkpassport/zkpassport-packages/pull/212)
+merges, integrators may need to apply a small patch (the published
+`@passportsign/cli` bundles a patched SDK so end users don't see
+this).
 
 ### Testing without burning a real passport
 
@@ -868,16 +1011,23 @@ v0 is **complete** when:
    `docs/v0-acceptance.md`.
 5. Test vectors for the in-toto statement's canonical JCS bytes are
    pinned in the repo and the verifier CLI passes them.
-6. README documents the localhost-HTTP-bridge requirement, the
-   phone-network constraint (per Day 0.5 findings), and any tunnel
-   setup required for realistic conditions.
+6. README documents the SDK setup constraints — specifically: the
+   operator must register their domain in the zkPassport developer
+   dashboard, DNS-verify it, and use an SDK build that forwards the
+   correct `origin` to `Bridge.create` (the published `@passportsign/cli`
+   bundles a patched SDK to handle this until upstream PR #212 merges).
 
 The Day 0 SDK prototype is a hard gate before any of the above: the QR
-must render, the phone must reach the localhost bridge, the proof must
-parse, and the SDK verifier must accept it. Failure on any of those
-four points is a re-plan trigger, not a "keep going."
+must render, the phone must establish a bridge session with the SDK,
+the proof must parse, and the SDK verifier must accept it. Failure on
+any of those four points is a re-plan trigger, not a "keep going."
 
 If all six hold end-to-end (Day 0 included), the cryptographic core is
 sound and v1 is purely a polish-layer-and-web-UI exercise on top. The
 actual Rekor entry hash from the real-passport bind is committed to
 `docs/v0-acceptance.md` as living evidence.
+
+**v0 outcome (shipped 2026-05-25):** All six criteria green; #4
+deferred to v0.5/v1 with rationale documented in
+`docs/v0-acceptance.md`. Living entry:
+[`108e9186…2e151`](https://rekor.sigstore.dev/api/v1/log/entries/108e9186e8c5677a53b1918ed9b9bbe15194e42714fd3a3f8f0e163d3a22831120a4c540a332e151).
