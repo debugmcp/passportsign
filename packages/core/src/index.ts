@@ -50,12 +50,11 @@ export {
   type GistEvidence,
 } from './github.js';
 
-export {
-  openCache,
-  type BindingRow,
-  type PassportsignCache,
-  type Status,
-} from './storage/sqlite.js';
+// SQLite cache is intentionally not re-exported from the main entry —
+// `node:sqlite` doesn't bundle cleanly (esbuild strips the `node:` prefix
+// and there's no public `sqlite` npm package by that name). Consumers
+// who need it should import from `@passportsign/core/storage/sqlite`
+// directly. The v0 CLI doesn't use the cache; rebuild is v1 work.
 
 export {
   prepareBinding,

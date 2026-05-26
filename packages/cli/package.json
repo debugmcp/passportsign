@@ -1,32 +1,63 @@
 {
   "name": "@passportsign/cli",
-  "version": "0.0.0",
-  "private": true,
-  "description": "passportsign CLI — bind, verify, rebuild.",
+  "version": "0.1.0",
+  "description": "passportsign CLI: bind a GitHub account to a passport-holding human via zkPassport, verify bindings against public Sigstore Rekor, generate self-contained inline SVG badges.",
+  "keywords": [
+    "passportsign",
+    "cli",
+    "sigstore",
+    "rekor",
+    "zkpassport",
+    "in-toto",
+    "personhood",
+    "attestation",
+    "identity"
+  ],
+  "homepage": "https://passportsign.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/debugmcp/passportsign.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/debugmcp/passportsign/issues"
+  },
   "license": "Apache-2.0",
+  "author": "JF <https://passportsign.dev>",
   "type": "module",
   "bin": {
-    "passportsign": "./dist/index.js"
+    "passportsign": "./dist/passportsign.cjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup",
     "cli": "tsx src/index.ts",
     "bind": "tsx src/index.ts bind",
     "verify": "tsx src/index.ts verify",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@passportsign/core": "workspace:*",
+    "@aztec/bb.js": "4.2.0-aztecnr-rc.2",
     "@zkpassport/sdk": "^0.15.1",
     "commander": "^12.1.0",
     "ora": "^8.1.0",
     "qrcode-terminal": "^0.12.0"
   },
   "devDependencies": {
-    "@types/qrcode-terminal": "^0.12.2"
+    "@passportsign/core": "workspace:*",
+    "@types/qrcode-terminal": "^0.12.2",
+    "tsup": "^8.5.1"
   }
 }
