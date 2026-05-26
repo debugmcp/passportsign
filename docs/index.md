@@ -61,16 +61,13 @@ the explicit Sybil-resistance limits.
 
 ## Try it
 
-You'll need [Node 22+][node], the
+You'll need [Node 22.5+][node], the
 [ZKPassport mobile app][zkp-ios] (or [Android][zkp-android]) with an
 NFC e-passport loaded, and a GitHub account you can create a public
 gist on.
 
 ```bash
-git clone https://github.com/debugmcp/passportsign.git
-cd passportsign
-pnpm install
-pnpm --filter @passportsign/cli exec tsx src/index.ts bind <your-github-username> --country
+npx @passportsign/cli bind <your-github-username> --country
 ```
 
 The CLI walks four steps — gist → QR scan → Rekor submit → bundle &
@@ -80,7 +77,7 @@ badge written to your working directory. Detailed flow in the
 ### Verify someone else's binding
 
 ```bash
-pnpm --filter @passportsign/cli exec tsx src/index.ts verify ./binding.passportsign.json
+npx @passportsign/cli verify ./binding.passportsign.json
 ```
 
 Four checks, **zero dependency on a passportsign.dev operator**:
