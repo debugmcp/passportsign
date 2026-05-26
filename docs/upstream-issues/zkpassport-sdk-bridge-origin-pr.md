@@ -1,5 +1,8 @@
 # Upstream PR — `fix(sdk): forward origin to Bridge.create`
 
+**Filed: [zkpassport/zkpassport-packages#212](https://github.com/zkpassport/zkpassport-packages/pull/212)**
+on 2026-05-26 from `debugmcpdev:fix-bridge-origin-for-node`.
+
 Resolves issue [zkpassport/zkpassport-packages#211](https://github.com/zkpassport/zkpassport-packages/issues/211)
 (filed by `@debugmcpdev` on 2026-05-25). Matches the silent-slider
 symptom in the older open issue
