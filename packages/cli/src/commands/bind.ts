@@ -196,8 +196,8 @@ export async function runBindCommand(
   console.log('   replace `./passportsign-badge.svg` with a raw URL like:');
   console.log(`     https://raw.githubusercontent.com/<owner>/<repo>/main/passportsign-badge.svg`);
   console.log('');
-  console.log('Verify the bundle yourself (or send it to a skeptic to verify):');
-  console.log(`  passportsign verify ${bundlePath}`);
+  console.log('Verify the bundle yourself (or send it to a skeptic):');
+  console.log(`  npx @passportsign/cli verify ${bundlePath}`);
   console.log('');
   console.log(`Public Rekor entry: ${rekorUrl}`);
 

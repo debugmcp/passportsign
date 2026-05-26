@@ -44,24 +44,17 @@ The companion bundle is at [`docs/evidence/binding.passportsign.json`](docs/evid
 
 You'll need:
 
-- Node 22+ (uses `node:sqlite`).
+- Node **22.5+** (uses `node:sqlite`).
 - The **ZKPassport mobile app** ([iOS](https://apps.apple.com/us/app/zkpassport/id6477371975) /
   [Android](https://play.google.com/store/apps/details?id=app.zkpassport.zkpassport))
   with your real e-passport loaded.
 - A GitHub account you can create a public gist on (you'll create one
   during the bind).
-- pnpm 10+.
-
-```bash
-git clone https://github.com/debugmcp/passportsign.git
-cd passportsign
-pnpm install
-```
 
 ### Bind a GitHub username to your passport
 
 ```bash
-pnpm --filter @passportsign/cli exec tsx src/index.ts bind <your-github-username> --country
+npx @passportsign/cli bind <your-github-username> --country
 ```
 
 The CLI walks four steps:
@@ -79,7 +72,7 @@ The CLI walks four steps:
 ### Verify someone else's binding
 
 ```bash
-pnpm --filter @passportsign/cli exec tsx src/index.ts verify ./binding.passportsign.json
+npx @passportsign/cli verify ./binding.passportsign.json
 ```
 
 Four checks, all run **without any dependency on a passportsign.dev
