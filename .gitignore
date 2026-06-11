@@ -17,3 +17,5 @@ dist/
 
 # Local config that may carry tokens
 .passportsign/
+
+.wrangler/
