@@ -6,6 +6,7 @@ import { canonicalize } from '../src/canonical.js';
 import { PassportsignError } from '../src/errors.js';
 import { type PreparedBinding } from '../src/bind.js';
 import { type RekorClient, type RekorEntryResponse } from '../src/log/rekor.js';
+import { prepareRevocation } from '../src/revoke.js';
 import { submitBinding } from '../src/submit.js';
 import { BUNDLE_FORMAT_VERSION } from '../src/bundle.js';
 
@@ -94,6 +95,21 @@ describe('submitBinding', () => {
     );
     expect(envelopeArg.signatures).toHaveLength(1);
     expect(envelopeArg.signatures[0].publicKey).toContain('-----BEGIN PUBLIC KEY-----');
+  });
+
+  it('accepts a PreparedRevocation (statement-agnostic submission)', async () => {
+    const prepared = prepareRevocation({
+      github_username: 'cynarlab',
+      proof_blob_b64: Buffer.from('{"proofs":[]}').toString('base64'),
+      unique_identifier: '12345',
+      revokes_rekor_entry_hash: '1'.repeat(80),
+      scope: 'passportsign.dev:nationality-disclose:1',
+      zkpassport_sdk_version: '0.15.1',
+    });
+    const rekor = happyRekorClient();
+    const { bundle } = await submitBinding(prepared, { rekor });
+    expect(bundle.statement).toBe(Buffer.from(prepared.statement_canonical).toString('hex'));
+    expect(rekor.submitIntoto).toHaveBeenCalledTimes(1);
   });
 
   it('propagates PassportsignError from the rekor client', async () => {

@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 
 import { runBindCommand } from './commands/bind.js';
+import { runRevokeCommand } from './commands/revoke.js';
 import { runVerifyCommand } from './commands/verify.js';
 
 const program = new Command()
@@ -29,6 +30,16 @@ program
       noRekorRefetch: opts.rekorRefetch === false,
       gistRecheck: opts.gistRecheck ?? false,
     });
+    process.exit(code);
+  });
+
+program
+  .command('revoke')
+  .argument('<github_username>')
+  .option('--entry <uuid>', 'Rekor entry UUID of a specific binding to revoke')
+  .description('Revoke binding(s) with a fresh scan of the same passport (no GitHub access needed).')
+  .action(async (githubUsername: string, opts: { entry?: string }) => {
+    const code = await runRevokeCommand(githubUsername, opts);
     process.exit(code);
   });
 

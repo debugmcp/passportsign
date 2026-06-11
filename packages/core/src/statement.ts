@@ -8,9 +8,13 @@
  * output for representative statements built here.
  */
 
+import { createHash } from 'node:crypto';
+
 export const IN_TOTO_STATEMENT_TYPE = 'https://in-toto.io/Statement/v1' as const;
 export const PASSPORTSIGN_PREDICATE_TYPE =
   'https://passportsign.dev/personhood/v1' as const;
+export const PASSPORTSIGN_REVOCATION_PREDICATE_TYPE =
+  'https://passportsign.dev/personhood/v1#revocation' as const;
 
 export type DisclosureLevel = 'personhood' | 'personhood+country';
 
@@ -55,11 +59,20 @@ export interface BuildStatementInput {
 }
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
+const REKOR_UUID = /^[0-9a-f]{80}$/;
 
 function assertSha256Hex(value: string, field: string): void {
   if (!SHA256_HEX.test(value)) {
     throw new TypeError(
       `${field}: expected lowercase 64-char hex SHA-256, got ${JSON.stringify(value)}`,
+    );
+  }
+}
+
+function assertRekorUuid(value: string, field: string): void {
+  if (!REKOR_UUID.test(value)) {
+    throw new TypeError(
+      `${field}: expected 80-char lowercase hex Rekor entry UUID, got ${JSON.stringify(value)}`,
     );
   }
 }
@@ -112,6 +125,79 @@ export function buildStatement(input: BuildStatementInput): PassportsignStatemen
       proof_blob_sha256: input.proof_blob_sha256,
       gist_url: input.gist_url,
       gist_content_sha256: input.gist_content_sha256,
+      scope: input.scope,
+      zkpassport_sdk_version: input.zkpassport_sdk_version,
+    },
+  };
+}
+
+export interface PassportsignRevocationPredicate {
+  /** Must match the revoked binding's `unique_identifier` — same passport, same scope. */
+  unique_identifier: string;
+  /** Rekor entry UUID of the binding being revoked. */
+  revokes_rekor_entry_hash: string;
+  /** Lowercase hex SHA-256 of the fresh proof blob backing this revocation. */
+  proof_blob_sha256: string;
+  /** zkPassport scope — must equal the binding scope or the identifiers won't match. */
+  scope: string;
+  zkpassport_sdk_version: string;
+}
+
+export interface PassportsignRevocationStatement {
+  _type: typeof IN_TOTO_STATEMENT_TYPE;
+  subject: Array<{
+    name: string;
+    digest: { sha256: string };
+  }>;
+  predicateType: typeof PASSPORTSIGN_REVOCATION_PREDICATE_TYPE;
+  predicate: PassportsignRevocationPredicate;
+}
+
+export interface BuildRevocationStatementInput {
+  github_username: string;
+  unique_identifier: string;
+  revokes_rekor_entry_hash: string;
+  proof_blob_sha256: string;
+  scope: string;
+  zkpassport_sdk_version: string;
+}
+
+/**
+ * Build a passportsign revocation statement (spec §7, roadmap v0.5.2).
+ *
+ * Revocation requires only a fresh proof from the same passport — there
+ * are deliberately no gist fields (no GitHub control needed; that's the
+ * recovery property). The revocation always targets one concrete
+ * binding entry; the subject digest is the sha256 of that entry's UUID
+ * string, tying the statement to the artifact it acts on.
+ */
+export function buildRevocationStatement(
+  input: BuildRevocationStatementInput,
+): PassportsignRevocationStatement {
+  assertRekorUuid(input.revokes_rekor_entry_hash, 'revokes_rekor_entry_hash');
+  assertSha256Hex(input.proof_blob_sha256, 'proof_blob_sha256');
+  assertNonEmpty(input.github_username, 'github_username');
+  assertNonEmpty(input.unique_identifier, 'unique_identifier');
+  assertNonEmpty(input.scope, 'scope');
+  assertNonEmpty(input.zkpassport_sdk_version, 'zkpassport_sdk_version');
+
+  const subjectDigest = createHash('sha256')
+    .update(input.revokes_rekor_entry_hash, 'utf8')
+    .digest('hex');
+
+  return {
+    _type: IN_TOTO_STATEMENT_TYPE,
+    subject: [
+      {
+        name: `github.com/${input.github_username}`,
+        digest: { sha256: subjectDigest },
+      },
+    ],
+    predicateType: PASSPORTSIGN_REVOCATION_PREDICATE_TYPE,
+    predicate: {
+      unique_identifier: input.unique_identifier,
+      revokes_rekor_entry_hash: input.revokes_rekor_entry_hash,
+      proof_blob_sha256: input.proof_blob_sha256,
       scope: input.scope,
       zkpassport_sdk_version: input.zkpassport_sdk_version,
     },

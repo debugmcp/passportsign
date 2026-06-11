@@ -14,10 +14,15 @@ export {
 export {
   IN_TOTO_STATEMENT_TYPE,
   PASSPORTSIGN_PREDICATE_TYPE,
+  PASSPORTSIGN_REVOCATION_PREDICATE_TYPE,
+  buildRevocationStatement,
   buildStatement,
+  type BuildRevocationStatementInput,
   type BuildStatementInput,
   type DisclosureLevel,
   type PassportsignPredicate,
+  type PassportsignRevocationPredicate,
+  type PassportsignRevocationStatement,
   type PassportsignStatement,
 } from './statement.js';
 
@@ -88,7 +93,14 @@ export {
   submitBinding,
   type SubmitBindingDeps,
   type SubmitBindingResult,
+  type SubmittableStatement,
 } from './submit.js';
+
+export {
+  prepareRevocation,
+  type PrepareRevocationInput,
+  type PreparedRevocation,
+} from './revoke.js';
 
 export {
   hashLeaf,

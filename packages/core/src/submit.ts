@@ -7,7 +7,6 @@
  * bind into a public-log entry plus a portable bundle.
  */
 
-import { type PreparedBinding } from './bind.js';
 import {
   BUNDLE_FORMAT_VERSION,
   type PassportsignBundle,
@@ -18,6 +17,16 @@ import { type RekorClient, type RekorEntryResponse } from './log/rekor.js';
 
 export interface SubmitBindingDeps {
   rekor: RekorClient;
+}
+
+/**
+ * What submission actually needs — satisfied by both `PreparedBinding`
+ * and `PreparedRevocation`. The statement kind doesn't matter here;
+ * Rekor sees canonical bytes either way.
+ */
+export interface SubmittableStatement {
+  statement_canonical: Uint8Array;
+  proof_blob_b64: string;
 }
 
 export interface SubmitBindingResult {
@@ -32,7 +41,7 @@ export interface SubmitBindingResult {
  * any Rekor failure.
  */
 export async function submitBinding(
-  prepared: PreparedBinding,
+  prepared: SubmittableStatement,
   deps: SubmitBindingDeps,
 ): Promise<SubmitBindingResult> {
   const { envelope } = signEnvelope(prepared.statement_canonical, IN_TOTO_PAYLOAD_TYPE);
