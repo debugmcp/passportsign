@@ -8,7 +8,7 @@ import { runVerifyCommand } from './commands/verify.js';
 const program = new Command()
   .name('passportsign')
   .description('Sigstore-adjacent personhood attestations binding GitHub accounts to passport-holding humans.')
-  .version('0.0.0');
+  .version('0.2.0');
 
 program
   .command('bind')

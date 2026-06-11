@@ -113,8 +113,9 @@ any step.
 | Version | Scope | Status |
 |---|---|---|
 | **v0** | CLI proof-of-concept: bind, verify, badge generation | **shipped 2026-05-25** |
-| v1 | Next.js web app: hosted badge service at `passportsign.dev/badge/<user>.svg`, `/verify/<user>` static verifier, REST API | planned (~3–4 weeks) |
-| v1.5 | Slack/Discord bot mention-resolvers, federated operators, reference standalone verifier CLI | planned |
+| **v0.5** | `revoke` + `list` commands, the `passportsign-index.json` discovery convention, live-state badge service (`passportsign.dev/badge/<user>.svg` — green/stale/revoked) and `/verify/<user>` page on a stateless edge Worker | **code complete 2026-06-11**, hosted rollout in progress |
+| **v1.0** | Browser bind flow at `passportsign.dev/bind` — phone + browser, no CLI; fully static (the page talks to GitHub and Rekor directly and verifies the inclusion proof locally) | **code complete 2026-06-11**, real-passport staging run pending |
+| v1.x | Slack/Discord bot mention-resolvers, federation deployment kit, standalone `@passportsign/verify` package, more badge styles | planned |
 | v2 | Federated operators, org-level bindings, additional witness recruitment | planned |
 
 The full v0 acceptance walkthrough — six criteria, all PASS or
@@ -133,7 +134,7 @@ question → product → response — is public and verifiable.
 ## Source & links
 
 - **Repository**: [github.com/debugmcp/passportsign](https://github.com/debugmcp/passportsign)
-- **Spec**: [`docs/passportsign.md`](https://github.com/debugmcp/passportsign/blob/main/docs/passportsign.md) (v0.4)
+- **Spec**: [`docs/passportsign.md`](https://github.com/debugmcp/passportsign/blob/main/docs/passportsign.md) (v0.6)
 - **Acceptance evidence**: [`docs/v0-acceptance.md`](https://github.com/debugmcp/passportsign/blob/main/docs/v0-acceptance.md)
 - **The v0 ship entry on Rekor**: [`108e9186…2e151`](https://rekor.sigstore.dev/api/v1/log/entries/108e9186e8c5677a53b1918ed9b9bbe15194e42714fd3a3f8f0e163d3a22831120a4c540a332e151)
 - **License**: Apache-2.0

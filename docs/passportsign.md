@@ -1,4 +1,4 @@
-# passportsign — spec v0.5
+# passportsign — spec v0.6
 
 A Sigstore-adjacent service that issues cryptographic attestations binding a
 GitHub account to a passport-holding human, without revealing the human's
@@ -10,6 +10,43 @@ Domains: `passportsign.dev` (primary), `passportsign.org` (mirror / canonical
 docs).
 
 > **Changelog**
+>
+> v0.6 (2026-06-11): v0.5-milestone implementation learnings.
+> - **Discovery convention**: public Rekor cannot be searched by
+>   `predicateType`, so all read paths (CLI `list`, badge service,
+>   revocation visibility) resolve through `passportsign-index.json`
+>   at the root of the user's profile repo, schema v1 carrying both
+>   `bindings` and `revocations` (each a `rekor_entry_hash` list).
+>   Consumers MUST NOT trust the index: every referenced entry is
+>   fetched from the log, its attestation hash-checked against the
+>   entry's recorded `payloadHash`, its inclusion proof verified, and
+>   its subject matched against the username.
+> - **Operator overlay** (`passportsign.dev/index/<user>.json`,
+>   append-only via PR to the project repo): because the user index
+>   lives in a repo the GitHub account controls, an account hijacker
+>   could scrub a revocation from it. Badge/verify services count
+>   revocations from either source; the overlay is the true owner's
+>   recovery channel. See §7.
+> - **Revocation implemented** per §7: predicateType
+>   `https://passportsign.dev/personhood/v1#revocation`, subject
+>   digest = sha256 of the revoked entry's UUID, predicate carries
+>   `unique_identifier` + `revokes_rekor_entry_hash`; no gist fields.
+> - **Staleness (§10 row 1) is enforced** in code: 12 months from
+>   Rekor `integratedTime` (user-supplied dates are display-only).
+> - **§11/v1 architecture correction**: `rekor.sigstore.dev` serves
+>   CORS headers (`Access-Control-Allow-Origin: *`, POST preflight
+>   incl. content-type — verified 2026-06-11), and api.github.com has
+>   long done the same. The browser bind flow therefore runs fully
+>   client-side: nonce, gist check, zkPassport bridge (page origin
+>   matches the registered domain natively — the SDK patch is
+>   Node-only), WebCrypto DSSE signing (P1363→DER), direct Rekor
+>   submission, local inclusion-proof verification. No session
+>   backend, no Durable Objects, no database anywhere.
+> - **Hosted badge trust statement**: the Worker badge asserts only
+>   "well-formed entry for this username, included in the log, not
+>   revoked" — it does not re-run ZK verification (bb.js exceeds
+>   Worker limits). Consistent with §8: the badge is a thumbnail;
+>   the Rekor entry and CLI `verify` are the evidence.
 >
 > v0.5 (2026-05-26): v0 ship learnings folded in. v0 shipped
 > 2026-05-25 with a real-passport entry on public Sigstore Rekor
@@ -529,6 +566,17 @@ can be re-established via a fresh binding flow — and because the recovery
 property is the more common case. Users should be told this explicitly in
 the binding UI. See also §10 row 2.
 
+**Revocation visibility** *(v0.6)*: revocation entries are discovered
+through the same `passportsign-index.json` as bindings — and that file
+lives in a repo the GitHub account controls, so an account hijacker
+could hide a revocation by removing it from the index. Mitigation:
+badge/verify services also read an **operator overlay**
+(`passportsign.dev/index/<user>.json`, appended via PR to the project
+repo) and honor revocations from either source. The overlay is the
+true owner's recovery channel; it grants the operator no positive
+power (it can't fabricate bindings — only surface log entries that
+must still verify).
+
 ### Federation as a consequence
 
 Because the log is the trust anchor and not the operator, anyone can run a
@@ -647,6 +695,11 @@ construction.
   does not remove the captured URL or content SHA from the log.
 - **Anyone with brief access to your passport can revoke your binding.**
   See §7 revocation tradeoff. Re-binding restores it.
+- **Your badge resolves through your published index.** Bindings and
+  revocations become visible to badge services only after you commit
+  the updated `passportsign-index.json` to your profile repo (or the
+  operator overlay carries them). An unpublished revocation protects
+  no one.
 
 ### What the service does not collect
 
@@ -676,8 +729,8 @@ the historical entry remains visible for auditability.
 | 9 | Transparency log: Sigstore Rekor vs self-hosted | **DECIDED for v0:** public Sigstore Rekor (`rekor.sigstore.dev`), `intoto` v0.0.2 entry type, custom `predicateType` `https://passportsign.dev/personhood/v1`. Confirmed working with a real-passport entry shipped 2026-05-25. |
 | 10 | Witness set | v1: rely on Sigstore's existing witnesses. v2: solicit additional independent witnesses (OSS foundations, security research orgs). |
 | 11 | Coarser country disclosure (EU / region) | Out of scope for v1. zkPassport supports predicates; UI complexity not yet justified. |
-| 12 | `passportsign rebuild` feasibility | **DEFERRED to v1** (was hoped to be in v0). The public Sigstore Rekor `/api/v1/log/entries/retrieve` endpoint does not index by `predicateType` or payload hash, so walking the log to reconstruct the cache isn't feasible at public-log scale (~1.5G entries as of v0 ship). Practical paths for v1: a dedicated lightweight index built off the user-side `passportsign-index.json` convention (see [`docs/roadmap.md`](roadmap.md) v0.5.5), or a side index built off a Rekor mirror with a richer query API. |
-| 13 | Operator architecture for v1 hosted services | **REVISED:** the spec's v0.4 plan of "Postgres + Next.js" is replaced by an edge-function architecture (Cloudflare Worker or equivalent) for the hosted badge service and a small browser bind flow. Reduces cost to near-zero at hobby scale, sharpens the "operator is a convenience, not a trust authority" property (no persistent state), and makes federation fall out for free. See [`docs/roadmap.md`](roadmap.md) v0.5.4 / v1.0.1. |
+| 12 | `passportsign rebuild` feasibility | **RESOLVED via the index convention (v0.6).** Discovery flows through `passportsign-index.json` files; `passportsign list <user>` reconstructs any user's state from their index + the log, and the badge service does the same per-request. A global rebuild (all users) would still need a directory of index files — deferred until something needs it. |
+| 13 | Operator architecture for v1 hosted services | **IMPLEMENTED (v0.6):** Cloudflare Worker (`packages/web`) serving `/badge/<u>.svg` + `/verify/<u>`, static `/bind` page built with Vite. Even better than the v0.5 revision anticipated: Rekor serves CORS, so the bind flow needs no session backend at all — the operator's hosted surface holds zero state and zero keys. |
 | 14 | Trusted Domain UX trust model | **OPEN.** The phone app's "Trusted Domain" check is currently satisfied by a string match between two creator-supplied fields (WebSocket `Origin` header and the URL's `d=` parameter). The fix is server-side request signing with a project-registered key; out of scope for v0. See §8 for the limitation and disclosure status. |
 
 ---

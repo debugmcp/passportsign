@@ -1,6 +1,6 @@
 {
   "name": "@passportsign/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Core primitives for passportsign: canonical serialization, in-toto Statement v1 builder, binding bundle format, GitHub gist check, Rekor client, RFC 6962 Merkle, DSSE envelope, bundle verifier. Apache-2.0.",
   "keywords": [
     "passportsign",

@@ -9,6 +9,26 @@ operator infrastructure we deliberately deferred.
 This roadmap describes **what each milestone enables**, not when it
 ships.
 
+> **Status update (2026-06-11).** v0.5.2 (revocation), v0.5.3
+> (`list`), v0.5.5 (index convention) and v0.5.4 (Worker badge
+> service, code complete — deploy pending DNS) landed, plus v1.0.1
+> (browser bind flow, code complete — staging real-passport run
+> pending). Two findings reshaped the plan:
+>
+> 1. **The index convention had to come first, not last.** Public
+>    Rekor can't be searched by predicateType, so
+>    `passportsign-index.json` is the *only* discovery mechanism —
+>    `list`, the badge service, and revocation visibility all read
+>    it. Its schema carries revocations from v1.
+> 2. **`rekor.sigstore.dev` serves CORS headers** (verified:
+>    `Access-Control-Allow-Origin: *`, POST preflight with
+>    content-type). The v1.0.1 sketch below of "a small hosted
+>    backend for session state" turned out to be unnecessary — the
+>    bind page is fully static; the browser talks to GitHub and
+>    Rekor directly and verifies the inclusion proof locally.
+>
+> Still blocked: v0.5.1 (upstream PR #212 remains open).
+
 ---
 
 ## v0.5 — Polish + first hosted endpoint

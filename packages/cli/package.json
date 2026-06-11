@@ -1,6 +1,6 @@
 {
   "name": "@passportsign/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "passportsign CLI: bind a GitHub account to a passport-holding human via zkPassport, verify bindings against public Sigstore Rekor, generate self-contained inline SVG badges.",
   "keywords": [
     "passportsign",

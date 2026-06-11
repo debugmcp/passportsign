@@ -66,8 +66,37 @@ The CLI walks four steps:
    approve the disclosure on your phone.
 3. **Submit** — submits the resulting in-toto attestation to public
    Sigstore Rekor.
-4. **Bundle + badge** — writes `binding.passportsign.json` and
-   `passportsign-badge.svg` next to where you ran the command.
+4. **Bundle + badge + index** — writes `binding.passportsign.json`,
+   `passportsign-badge.svg`, and `passportsign-index.json` next to
+   where you ran the command. Commit the index to the root of your
+   profile repo (`github.com/<you>/<you>`) — it's how badge services
+   and `passportsign list` discover your binding (public Rekor isn't
+   searchable by predicate type).
+
+### List a user's bindings
+
+```bash
+npx @passportsign/cli list <github-username>          # via their published index
+npx @passportsign/cli list <github-username> --entry <rekor-uuid>   # direct inspection
+```
+
+Fetches every entry the index references, integrity-checks it against
+the log, verifies its inclusion proof, and prints the state of each
+binding: `active`, `stale` (older than 12 months), or `revoked`.
+`--json` for scripting.
+
+### Revoke a binding
+
+```bash
+npx @passportsign/cli revoke <github-username>
+```
+
+Needs only a fresh scan of the **same passport** — no GitHub access
+(that's the recovery property: if your account is hijacked, you can
+still revoke). Submits a revocation entry to Rekor and updates your
+`passportsign-index.json`; commit the updated index or nobody learns
+of the revocation. Conversely: anyone with brief access to your
+passport can do this, and the harm is reversible by re-binding.
 
 ### Verify someone else's binding
 
@@ -108,13 +137,20 @@ the captured gist URL as a liveness signal.
 packages/
 ├── core/    shared state machine: canonical serialization, in-toto
 │            statement builder, bundle format, GitHub gist check,
-│            Rekor client, RFC 6962 Merkle, SQLite cache, verifier.
-└── cli/     `passportsign` binary: bind, verify, rebuild, init-config.
+│            Rekor client, RFC 6962 Merkle, verifier, profile-index
+│            convention, state classification. Runtime-neutral —
+│            `@passportsign/core/web` runs on Workers and browsers.
+├── cli/     `passportsign` binary: bind, verify, list, revoke.
+└── web/     hosted surface: Cloudflare Worker serving live-state
+             badges (/badge/<u>.svg), /verify/<u>, and the static
+             /bind browser flow. No database, no keys.
 
 docs/
-├── passportsign.md        v0.4 spec
+├── passportsign.md        v0.6 spec
+├── roadmap.md             v0.5 / v1.0 / v2 milestones + status
 ├── v0-acceptance.md       six-criteria walkthrough + living evidence
 ├── evidence/              real-passport bundle + badge from v0 ship
+├── index/                 operator overlay indexes (append via PR)
 └── upstream-issues/       drafts for SDK fixes filed at zkpassport
 ```
 
