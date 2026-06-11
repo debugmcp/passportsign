@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "github_username": "cynarlab",
+  "bindings": [
+    {
+      "rekor_entry_hash": "108e9186e8c5677a53b1918ed9b9bbe15194e42714fd3a3f8f0e163d3a22831120a4c540a332e151",
+      "bound_at": "2026-05-25T15:47:00Z"
+    }
+  ],
+  "revocations": []
+}

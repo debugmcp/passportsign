@@ -1,0 +1,21 @@
+{
+  "name": "@passportsign/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "passportsign hosted surface: Cloudflare Worker serving live-state badges (/badge/<user>.svg) and the verify page, backed entirely by the public Sigstore Rekor log and user-published passportsign-index.json files. No database.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@passportsign/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250528.0",
+    "wrangler": "^4.0.0"
+  }
+}
