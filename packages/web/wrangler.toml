@@ -9,6 +9,12 @@ name = "passportsign-web"
 main = "src/index.ts"
 compatibility_date = "2026-05-01"
 
+# The Vite-built browser app (/bind). Static assets are served first
+# for matching GET paths; /badge/* and /verify/* have no assets, so
+# they fall through to the Worker. Run `pnpm build` before deploy.
+[assets]
+directory = "dist-app"
+
 # routes = [
 #   { pattern = "passportsign.dev/badge/*", zone_name = "passportsign.dev" },
 #   { pattern = "passportsign.dev/verify/*", zone_name = "passportsign.dev" },

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>passportsign — bind your GitHub account</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 44rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #1f2328; }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.1rem; margin-top: 0; }
+  code, .nonce { background: #f6f8fa; padding: .1rem .35rem; border-radius: 4px; font-family: ui-monospace, monospace; }
+  .step { border: 1px solid #d1d9e0; border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .step[hidden] { display: none; }
+  .step.done { opacity: .55; }
+  button { font: inherit; padding: .45rem 1rem; border-radius: 6px; border: 1px solid #1f883d; background: #1f883d; color: #fff; cursor: pointer; }
+  button.secondary { background: #f6f8fa; color: #1f2328; border-color: #d1d9e0; }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=text] { font: inherit; padding: .4rem .6rem; border: 1px solid #d1d9e0; border-radius: 6px; width: 14rem; }
+  label { display: block; margin: .5rem 0; }
+  .error { color: #cf222e; margin-top: .5rem; white-space: pre-wrap; }
+  .progress { color: #59636e; font-style: italic; }
+  .warn { background: #fff8c5; border: 1px solid #d4a72c66; border-radius: 6px; padding: .75rem 1rem; margin: 1rem 0; font-size: .92rem; }
+  .nonce-row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: .5rem 0; }
+  #qr { margin: 1rem 0; }
+  textarea { width: 100%; min-height: 5rem; font-family: ui-monospace, monospace; font-size: .85rem; }
+  footer { margin-top: 2rem; font-size: .85rem; color: #59636e; }
+  a { color: #0969da; }
+</style>
+</head>
+<body>
+<h1>Bind your GitHub account to a passport-verified human</h1>
+<p>Four steps, all in this tab: prove control of your GitHub account
+with a gist, scan your passport with the
+<a href="https://zkpassport.id">ZKPassport</a> app, and the binding is
+published to the public
+<a href="https://rekor.sigstore.dev">Sigstore Rekor</a> transparency
+log. This page holds no server-side state — your passport data never
+leaves your phone, and the proof reveals nothing but personhood (plus
+country, only if you choose).</p>
+
+<div class="warn" id="disclosures">
+<strong>Read before binding — these are permanent:</strong>
+<ul>
+  <li>If you disclose your country, that disclosure is in the public log <strong>forever</strong>.</li>
+  <li>Multiple accounts bound with the same passport are <strong>visibly linked, forever</strong>. Revocation marks a binding inactive but the log entry remains.</li>
+  <li>The gist URL and a hash of its content are captured in the log; deleting the gist later doesn't remove them.</li>
+  <li>Anyone with brief access to your passport can revoke your binding (you can re-bind to recover).</li>
+</ul>
+</div>
+
+<section class="step" id="step-form">
+  <h2>1 · Who are you binding?</h2>
+  <label>GitHub username <input type="text" id="username" autocomplete="username" spellcheck="false"></label>
+  <label><input type="checkbox" id="disclose-country"> Also disclose my passport's issuing country (optional, permanent)</label>
+  <label><input type="checkbox" id="ack"> I've read the permanence notes above</label>
+  <button id="start" disabled>Start</button>
+</section>
+
+<section class="step" id="step-gist" hidden>
+  <h2>2 · Prove control of the account</h2>
+  <p>Create a <strong>public</strong> gist named <code>passportsign.txt</code>
+  containing exactly this nonce (no extra whitespace or newline):</p>
+  <div class="nonce-row">
+    <span class="nonce" id="nonce"></span>
+    <button class="secondary" id="copy-nonce">Copy</button>
+    <a href="https://gist.github.com" target="_blank" rel="noopener"><button class="secondary">Open gist.github.com</button></a>
+  </div>
+  <button id="check-gist">I've created it — check the gist</button>
+  <div class="error" id="gist-error" hidden></div>
+  <div id="pat-row" hidden>
+    <label>GitHub rate limit hit — paste a (classic, no-scope) personal access token to continue:
+    <input type="text" id="github-token" spellcheck="false"></label>
+  </div>
+</section>
+
+<section class="step" id="step-scan" hidden>
+  <h2>3 · Scan your passport</h2>
+  <p>Open the ZKPassport app and scan this QR — or
+  <a id="same-device" href="#">tap here if you're on the same device</a>.</p>
+  <canvas id="qr"></canvas>
+  <p class="progress" id="scan-progress">Waiting for the phone…</p>
+  <div class="error" id="scan-error" hidden></div>
+</section>
+
+<section class="step" id="step-done" hidden>
+  <h2>4 · Published ✓</h2>
+  <p>Your binding is on the public log:
+  <a id="rekor-link" href="#" target="_blank" rel="noopener"><code id="rekor-uuid"></code></a></p>
+
+  <h3>Files</h3>
+  <p>
+    <button class="secondary" id="dl-bundle">Download binding.passportsign.json</button>
+    <button class="secondary" id="dl-badge">Download passportsign-badge.svg</button>
+  </p>
+
+  <h3>Publish your index (required for the badge to resolve)</h3>
+  <p>Badge services discover your binding through a
+  <code>passportsign-index.json</code> at the root of your profile repo.
+  <a id="index-deeplink" href="#" target="_blank" rel="noopener">Create it on GitHub with one click</a>,
+  or copy it:</p>
+  <textarea id="index-json" readonly></textarea>
+
+  <h3>Badge markdown for your README</h3>
+  <textarea id="badge-md" readonly rows="2"></textarea>
+  <p><button class="secondary" id="copy-md">Copy markdown</button></p>
+
+  <p>Anyone can verify this without trusting us:
+  <code>npx @passportsign/cli verify binding.passportsign.json</code></p>
+</section>
+
+<footer>
+<a href="https://passportsign.dev">passportsign.dev</a> ·
+<a href="https://github.com/debugmcp/passportsign">source</a> ·
+The badge is evidence for an accountability claim — not identity, skill, or good faith.
+</footer>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>
