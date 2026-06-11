@@ -183,6 +183,18 @@ describe('classifyBindings', () => {
     expect(out[0]!.state).toBe('revoked');
   });
 
+  it('ignores a foreign predicateType that merely ends with #revocation', () => {
+    const foreign = revocation(UUID_R, 'uid-1', UUID_A);
+    foreign.predicateType = 'https://evil.example/v9#revocation';
+    (foreign.statement as { predicateType: string }).predicateType = foreign.predicateType;
+    const out = classifyBindings({
+      bindings: [binding(UUID_A, 'uid-1', RECENT)],
+      revocations: [foreign],
+      now: NOW,
+    });
+    expect(out[0]!.state).toBe('active');
+  });
+
   it('ignores revocation entries whose predicateType is not the revocation type', () => {
     const fake = binding(UUID_R, 'uid-1', RECENT); // binding predicateType, not #revocation
     const out = classifyBindings({

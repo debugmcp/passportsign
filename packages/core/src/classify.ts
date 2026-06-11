@@ -14,7 +14,10 @@
 
 import { base64ToBytes, bytesToUtf8, sha256Hex } from './encoding.js';
 import { type RekorEntryResponse } from './log/rekor.js';
-import { IN_TOTO_STATEMENT_TYPE } from './statement.js';
+import {
+  IN_TOTO_STATEMENT_TYPE,
+  PASSPORTSIGN_REVOCATION_PREDICATE_TYPE,
+} from './statement.js';
 
 /** Spec §10 row 1: bindings move to `stale` after 12 months. */
 export const STALENESS_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
@@ -138,8 +141,10 @@ function predicateField(entry: ParsedIntotoEntry, field: string): string | undef
  */
 export function classifyBindings(input: ClassifyBindingsInput): ClassifiedBinding[] {
   const now = input.now ?? Date.now();
-  const revocations = input.revocations.filter((r) =>
-    r.predicateType.endsWith('#revocation'),
+  // Exact match, not endsWith — a foreign predicateType that happens to
+  // end in #revocation must never revoke a binding.
+  const revocations = input.revocations.filter(
+    (r) => r.predicateType === PASSPORTSIGN_REVOCATION_PREDICATE_TYPE,
   );
 
   return input.bindings.map((entry) => {
