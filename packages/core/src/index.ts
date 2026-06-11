@@ -111,6 +111,35 @@ export {
 } from './badge.js';
 
 export {
+  PROFILE_INDEX_FILENAME,
+  PROFILE_INDEX_VERSION,
+  ProfileIndexValidationError,
+  addBinding,
+  addRevocation,
+  createProfileIndex,
+  fetchProfileIndex,
+  mergeProfileIndexes,
+  profileIndexUrl,
+  validateProfileIndex,
+  type FetchProfileIndexOptions,
+  type ProfileIndex,
+  type ProfileIndexBinding,
+  type ProfileIndexRevocation,
+} from './profile-index.js';
+
+export {
+  EntryParseError,
+  STALENESS_WINDOW_MS,
+  classifyBindings,
+  parseIntotoEntry,
+  type BindingState,
+  type ClassifiedBinding,
+  type ClassifyBindingsInput,
+  type InTotoStatement,
+  type ParsedIntotoEntry,
+} from './classify.js';
+
+export {
   verifyBundle,
   type BundleVerifyResult,
   type CheckResult,

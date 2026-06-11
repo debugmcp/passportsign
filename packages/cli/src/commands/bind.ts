@@ -33,6 +33,7 @@ import {
 } from '@passportsign/core';
 import { ZKPassport } from '@zkpassport/sdk';
 
+import { updateIndexFileWithBinding } from '../index-file.js';
 import { header, promptEnter, renderQr, spinner } from '../ui.js';
 
 const DOMAIN = 'passportsign.dev';
@@ -157,8 +158,21 @@ export async function runBindCommand(
   });
   writeFileSync(badgePath, svg, 'utf8');
 
+  let indexPath: string | null = null;
+  try {
+    indexPath = updateIndexFileWithBinding(process.cwd(), githubUsername, {
+      rekor_entry_hash: rekorEntry.uuid,
+      bound_at: issuedAt.toISOString(),
+    }).path;
+  } catch (err) {
+    // The binding is already on the log — don't fail the whole command
+    // over a local convenience file, but make the user fix it.
+    console.error(`! could not update passportsign-index.json: ${formatPassportsignError(err)}`);
+  }
+
   console.log(`✓ bundle  → ${bundlePath}`);
   console.log(`✓ badge   → ${badgePath}`);
+  if (indexPath) console.log(`✓ index   → ${indexPath}`);
 
   // --- Success summary ---
   const dateStr = issuedAt.toISOString().slice(0, 10);
@@ -178,9 +192,13 @@ export async function runBindCommand(
   console.log(`The badge file (${badgePath}) is a static SVG with your`);
   console.log('username, country, and bind date already baked in. To use it:');
   console.log('');
-  console.log(`1. Commit ${badgePath.split(/[\\/]/).pop()} to a repo you control. The natural`);
-  console.log(`   home is your "profile repo" — github.com/${githubUsername}/${githubUsername}`);
+  console.log(`1. Commit ${badgePath.split(/[\\/]/).pop()} AND passportsign-index.json to the`);
+  console.log(`   root of your "profile repo" — github.com/${githubUsername}/${githubUsername}`);
   console.log(`   — which GitHub renders on your profile page.`);
+  console.log('');
+  console.log('   The index file is how badge services and `passportsign list`');
+  console.log('   discover your binding (public Rekor is not searchable by');
+  console.log('   predicate type). Without it, your badge cannot resolve.');
   console.log('');
   console.log('2. Paste this into the README of that repo:');
   console.log('');
