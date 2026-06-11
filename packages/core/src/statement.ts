@@ -8,7 +8,7 @@
  * output for representative statements built here.
  */
 
-import { createHash } from 'node:crypto';
+import { sha256Hex, utf8ToBytes } from './encoding.js';
 
 export const IN_TOTO_STATEMENT_TYPE = 'https://in-toto.io/Statement/v1' as const;
 export const PASSPORTSIGN_PREDICATE_TYPE =
@@ -181,9 +181,7 @@ export function buildRevocationStatement(
   assertNonEmpty(input.scope, 'scope');
   assertNonEmpty(input.zkpassport_sdk_version, 'zkpassport_sdk_version');
 
-  const subjectDigest = createHash('sha256')
-    .update(input.revokes_rekor_entry_hash, 'utf8')
-    .digest('hex');
+  const subjectDigest = sha256Hex(utf8ToBytes(input.revokes_rekor_entry_hash));
 
   return {
     _type: IN_TOTO_STATEMENT_TYPE,

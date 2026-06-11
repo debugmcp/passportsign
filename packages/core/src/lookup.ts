@@ -20,6 +20,7 @@ import {
   type ClassifiedBinding,
   type ParsedIntotoEntry,
 } from './classify.js';
+import { base64ToBytes, hexToBytes } from './encoding.js';
 import { hashLeaf, verifyInclusion } from './merkle.js';
 import { fetchProfileIndex, type ProfileIndex } from './profile-index.js';
 import { type RekorClient, type RekorEntryResponse } from './log/rekor.js';
@@ -44,17 +45,9 @@ export interface LookupResult {
   invalid: LookupEntryProblem[];
 }
 
-function hexToBytes(hex: string): Uint8Array {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
-  }
-  return out;
-}
-
 function verifyEntryInclusion(entry: RekorEntryResponse): boolean {
   const proof = entry.verification.inclusionProof;
-  const leaf = hashLeaf(new Uint8Array(Buffer.from(entry.body, 'base64')));
+  const leaf = hashLeaf(base64ToBytes(entry.body));
   return verifyInclusion(
     leaf,
     proof.logIndex,

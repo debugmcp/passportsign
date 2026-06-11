@@ -7,26 +7,14 @@
  * bind into a public-log entry plus a portable bundle.
  */
 
-import {
-  BUNDLE_FORMAT_VERSION,
-  type PassportsignBundle,
-  validateBundle,
-} from './bundle.js';
+import { assembleBundle, type PassportsignBundle, type SubmittableStatement } from './bundle.js';
 import { IN_TOTO_PAYLOAD_TYPE, signEnvelope } from './dsse.js';
 import { type RekorClient, type RekorEntryResponse } from './log/rekor.js';
 
+export { type SubmittableStatement } from './bundle.js';
+
 export interface SubmitBindingDeps {
   rekor: RekorClient;
-}
-
-/**
- * What submission actually needs — satisfied by both `PreparedBinding`
- * and `PreparedRevocation`. The statement kind doesn't matter here;
- * Rekor sees canonical bytes either way.
- */
-export interface SubmittableStatement {
-  statement_canonical: Uint8Array;
-  proof_blob_b64: string;
 }
 
 export interface SubmitBindingResult {
@@ -46,18 +34,5 @@ export async function submitBinding(
 ): Promise<SubmitBindingResult> {
   const { envelope } = signEnvelope(prepared.statement_canonical, IN_TOTO_PAYLOAD_TYPE);
   const rekorEntry = await deps.rekor.submitIntoto(envelope);
-
-  const bundle: PassportsignBundle = {
-    bundle_format_version: BUNDLE_FORMAT_VERSION,
-    statement: Buffer.from(prepared.statement_canonical).toString('hex'),
-    proof_blob: prepared.proof_blob_b64,
-    rekor: {
-      log_entry_hash: rekorEntry.uuid,
-      inclusion_proof: rekorEntry.verification.inclusionProof,
-      log_root_at_submission: rekorEntry.verification.inclusionProof.rootHash,
-    },
-  };
-  validateBundle(bundle);
-
-  return { bundle, rekorEntry };
+  return { bundle: assembleBundle(prepared, rekorEntry), rekorEntry };
 }

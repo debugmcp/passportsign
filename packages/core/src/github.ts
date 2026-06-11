@@ -11,7 +11,7 @@
  * carries zero special access. Unauth'd: 60 req/hr; with token: 5000.
  */
 
-import { createHash } from 'node:crypto';
+import { sha256Hex as sha256HexOfBytes, utf8ToBytes } from './encoding.js';
 import { PassportsignError } from './errors.js';
 
 export interface GistEvidence {
@@ -47,7 +47,7 @@ const DEFAULT_BASE_URL = 'https://api.github.com';
 const GIST_LIST_PER_PAGE = 100;
 
 function sha256Hex(content: string): string {
-  return createHash('sha256').update(content, 'utf8').digest('hex');
+  return sha256HexOfBytes(utf8ToBytes(content));
 }
 
 function authHeaders(token: string | undefined): Record<string, string> {

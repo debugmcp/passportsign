@@ -13,7 +13,8 @@
  * Rekor response format.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { bytesToHex } from './encoding.js';
+import { type RekorEntryResponse } from './log/rekor.js';
 
 export const BUNDLE_FORMAT_VERSION = 1 as const;
 
@@ -99,29 +100,39 @@ export function validateBundle(value: unknown): asserts value is PassportsignBun
   }
 }
 
+// readBundle / writeBundle live in `bundle-fs.ts` (node:fs) so this
+// module stays runtime-neutral; the main index re-exports both.
+
 /**
- * Read and validate a `binding.passportsign.json` file. Throws on
- * invalid JSON or schema violations.
+ * What bundle assembly needs from a prepared statement — satisfied by
+ * both `PreparedBinding` and `PreparedRevocation`. The statement kind
+ * doesn't matter; Rekor sees canonical bytes either way.
  */
-export function readBundle(path: string): PassportsignBundle {
-  const raw = readFileSync(path, 'utf8');
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    throw new BundleValidationError(
-      '$',
-      `invalid JSON: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-  validateBundle(parsed);
-  return parsed;
+export interface SubmittableStatement {
+  statement_canonical: Uint8Array;
+  proof_blob_b64: string;
 }
 
 /**
- * Validate and write a `binding.passportsign.json` file (pretty-printed).
+ * Assemble (and validate) the portable bundle from a prepared
+ * statement and the Rekor entry it produced. Pure — used by the node
+ * `submitBinding` path and by runtimes that sign with
+ * `signEnvelopeWeb` and submit through the Rekor client themselves.
  */
-export function writeBundle(path: string, bundle: PassportsignBundle): void {
+export function assembleBundle(
+  prepared: SubmittableStatement,
+  rekorEntry: RekorEntryResponse,
+): PassportsignBundle {
+  const bundle: PassportsignBundle = {
+    bundle_format_version: BUNDLE_FORMAT_VERSION,
+    statement: bytesToHex(prepared.statement_canonical),
+    proof_blob: prepared.proof_blob_b64,
+    rekor: {
+      log_entry_hash: rekorEntry.uuid,
+      inclusion_proof: rekorEntry.verification.inclusionProof,
+      log_root_at_submission: rekorEntry.verification.inclusionProof.rootHash,
+    },
+  };
   validateBundle(bundle);
-  writeFileSync(path, JSON.stringify(bundle, null, 2) + '\n', 'utf8');
+  return bundle;
 }

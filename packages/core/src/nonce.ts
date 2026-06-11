@@ -7,7 +7,7 @@
  * Entropy: 160 bits (20 bytes → 32 base32 chars).
  */
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes } from './encoding.js';
 
 const BASE32_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567';
 export const NONCE_BYTES = 20;

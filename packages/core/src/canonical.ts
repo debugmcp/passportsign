@@ -1,5 +1,6 @@
 import canonify from '@truestamp/canonify';
-import { createHash } from 'node:crypto';
+
+import { sha256Hex, utf8ToBytes } from './encoding.js';
 
 /**
  * RFC 8785 JCS-canonical UTF-8 bytes for a JSON-serializable value.
@@ -20,7 +21,7 @@ export function canonicalize(value: unknown): Uint8Array {
       'canonicalize: value cannot be JCS-canonicalized (undefined / cycle / non-JSON)',
     );
   }
-  return new TextEncoder().encode(canonical);
+  return utf8ToBytes(canonical);
 }
 
 /**
@@ -28,6 +29,5 @@ export function canonicalize(value: unknown): Uint8Array {
  * Rekor entry hash for the in-toto statement.
  */
 export function canonicalSha256Hex(value: unknown): string {
-  const bytes = canonicalize(value);
-  return createHash('sha256').update(bytes).digest('hex');
+  return sha256Hex(canonicalize(value));
 }

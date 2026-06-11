@@ -18,9 +18,19 @@ export interface BadgeInput {
   bound_at: string;            // ISO 8601 timestamp
   /** Rekor entry UUID for the `<title>` tooltip. */
   log_entry_hash?: string;
+  /**
+   * Binding state (spec §4 color logic). Defaults to `'active'` so
+   * v0-era callers (static badges) are unchanged.
+   */
+  state?: 'active' | 'stale' | 'revoked';
 }
 
 const LABEL = 'passportsign';
+const STATE_COLORS = {
+  active: '#4c1',
+  stale: '#dfb317',
+  revoked: '#e05d44',
+} as const;
 const CHAR_WIDTH_PX = 7;        // Approx Verdana 11pt character width
 const SIDE_PADDING_PX = 8;
 
@@ -53,8 +63,9 @@ function dateStringFor(isoTimestamp: string): string {
  * `writeFileSync`.
  */
 export function renderBadgeSvg(input: BadgeInput): string {
+  const state = input.state ?? 'active';
   const date = dateStringFor(input.bound_at);
-  const valueParts = ['verified human'];
+  const valueParts = [state === 'revoked' ? 'revoked' : 'verified human'];
   if (input.issuing_country) valueParts.push(input.issuing_country);
   valueParts.push(date);
   const valueText = valueParts.join(' · '); // middle dot ·
@@ -83,7 +94,7 @@ export function renderBadgeSvg(input: BadgeInput): string {
     `<clipPath id="r"><rect width="${totalW}" height="20" rx="3" fill="#fff"/></clipPath>`,
     `<g clip-path="url(#r)">`,
     `<rect width="${labelW}" height="20" fill="#555"/>`,
-    `<rect x="${labelW}" width="${valueW}" height="20" fill="#4c1"/>`,
+    `<rect x="${labelW}" width="${valueW}" height="20" fill="${STATE_COLORS[state]}"/>`,
     `<rect width="${totalW}" height="20" fill="url(#s)"/>`,
     `</g>`,
     `<g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">`,

@@ -6,11 +6,10 @@ import { join } from 'node:path';
 import {
   BUNDLE_FORMAT_VERSION,
   BundleValidationError,
-  readBundle,
   validateBundle,
-  writeBundle,
   type PassportsignBundle,
 } from '../src/bundle.js';
+import { readBundle, writeBundle } from '../src/bundle-fs.js';
 
 const validBundle = (overrides: Partial<PassportsignBundle> = {}): PassportsignBundle => ({
   bundle_format_version: BUNDLE_FORMAT_VERSION,

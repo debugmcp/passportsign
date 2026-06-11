@@ -9,10 +9,9 @@
  * `PassportsignError('log_submission_failed', …)` to match spec §4.
  */
 
-import { createHash } from 'node:crypto';
-
 import { canonicalize } from '../canonical.js';
-import { type DsseEnvelope } from '../dsse.js';
+import { type DsseEnvelope } from '../dsse-common.js';
+import { base64ToBytes, bytesToBase64, sha256Hex, utf8ToBytes } from '../encoding.js';
 import { PassportsignError } from '../errors.js';
 
 export interface InclusionProof {
@@ -240,8 +239,7 @@ export function buildIntotoEntryBody(envelope: DsseEnvelope): unknown {
   const sig0 = envelope.signatures[0]!;
 
   // payloadHash = sha256 of raw payload bytes.
-  const payloadBytes = new Uint8Array(Buffer.from(envelope.payload, 'base64'));
-  const payloadHashHex = createHash('sha256').update(payloadBytes).digest('hex');
+  const payloadHashHex = sha256Hex(base64ToBytes(envelope.payload));
 
   // envelopeHash = sha256 of canonical JSON of {payloadType, payload-base64,
   // signatures:[{sig-base64, publicKey: PEM-string [, keyid]}]} — note
@@ -258,14 +256,12 @@ export function buildIntotoEntryBody(envelope: DsseEnvelope): unknown {
     payload: envelope.payload,
     signatures: [sigForHash],
   };
-  const envelopeHashHex = createHash('sha256')
-    .update(canonicalize(envelopeForHash))
-    .digest('hex');
+  const envelopeHashHex = sha256Hex(canonicalize(envelopeForHash));
 
   // Build the actual submission body.
   const sigItem: Record<string, string> = {
-    sig: Buffer.from(sig0.sig).toString('base64'),
-    publicKey: Buffer.from(sig0.publicKey).toString('base64'),
+    sig: bytesToBase64(utf8ToBytes(sig0.sig)),
+    publicKey: bytesToBase64(utf8ToBytes(sig0.publicKey)),
   };
   if (sig0.keyid && sig0.keyid.length > 0) {
     sigItem['keyid'] = sig0.keyid;
@@ -278,7 +274,7 @@ export function buildIntotoEntryBody(envelope: DsseEnvelope): unknown {
       content: {
         envelope: {
           payloadType: envelope.payloadType,
-          payload: Buffer.from(envelope.payload).toString('base64'),
+          payload: bytesToBase64(utf8ToBytes(envelope.payload)),
           signatures: [sigItem],
         },
         hash: { algorithm: 'sha256', value: envelopeHashHex },

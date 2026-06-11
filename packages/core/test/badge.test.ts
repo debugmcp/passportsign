@@ -2,6 +2,32 @@ import { describe, it, expect } from 'vitest';
 
 import { renderBadgeMarkdown, renderBadgeSvg } from '../src/badge.js';
 
+describe('renderBadgeSvg states', () => {
+  const base = {
+    github_username: 'johnf',
+    issuing_country: 'CAN',
+    bound_at: '2026-05-25T10:30:00.000Z',
+  };
+
+  it('defaults to active (green) when no state is given', () => {
+    expect(renderBadgeSvg(base)).toContain('#4c1');
+  });
+
+  it('renders stale as yellow with the same value text', () => {
+    const svg = renderBadgeSvg({ ...base, state: 'stale' });
+    expect(svg).toContain('#dfb317');
+    expect(svg).toContain('verified human');
+    expect(svg).not.toContain('"#4c1"');
+  });
+
+  it('renders revoked as red with "revoked" in the value', () => {
+    const svg = renderBadgeSvg({ ...base, state: 'revoked' });
+    expect(svg).toContain('#e05d44');
+    expect(svg).toContain('revoked');
+    expect(svg).not.toContain('verified human');
+  });
+});
+
 describe('renderBadgeSvg', () => {
   it('renders a complete SVG with passportsign label and CAN value', () => {
     const svg = renderBadgeSvg({

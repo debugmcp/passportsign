@@ -9,8 +9,8 @@
  * carries through.
  */
 
-import { createHash } from 'node:crypto';
 import { canonicalize } from './canonical.js';
+import { base64ToBytes, bytesToBase64, bytesToUtf8, sha256Hex } from './encoding.js';
 
 export interface SdkPayload {
   /** The zkPassport SDK version that produced these proofs. */
@@ -36,14 +36,12 @@ export interface PackedSdkPayload {
 
 export function packSdkPayload(payload: SdkPayload): PackedSdkPayload {
   const bytes = canonicalize(payload);
-  const b64 = Buffer.from(bytes).toString('base64');
-  const sha256Hex = createHash('sha256').update(bytes).digest('hex');
-  return { bytes, b64, sha256Hex };
+  return { bytes, b64: bytesToBase64(bytes), sha256Hex: sha256Hex(bytes) };
 }
 
 export function unpackSdkPayload(b64: string): SdkPayload {
-  const bytes = Buffer.from(b64, 'base64');
-  const parsed = JSON.parse(bytes.toString('utf8')) as Record<string, unknown>;
+  const bytes = base64ToBytes(b64);
+  const parsed = JSON.parse(bytesToUtf8(bytes)) as Record<string, unknown>;
   // Defensive shape check (cheap; the canonicalize round-trip would already catch shape issues elsewhere).
   if (
     typeof parsed['sdk_version'] !== 'string' ||

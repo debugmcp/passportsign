@@ -12,9 +12,8 @@
  * `'pending_day_7'`.
  */
 
-import { createHash } from 'node:crypto';
-
 import { type PassportsignBundle, validateBundle } from './bundle.js';
+import { base64ToBytes, bytesToUtf8, hexToBytes, sha256Hex } from './encoding.js';
 import { type RekorClient } from './log/rekor.js';
 import { hashLeaf, verifyConsistency, verifyInclusion } from './merkle.js';
 import { unpackSdkPayload } from './sdk-payload.js';
@@ -76,24 +75,12 @@ export interface VerifyBundleDeps {
   sdkVerifier?: SdkVerifier;
 }
 
-function hexToBytes(hex: string): Uint8Array {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = parseInt(hex.substr(i * 2, 2), 16);
-  }
-  return out;
-}
-
-function sha256Hex(bytes: Uint8Array): string {
-  return createHash('sha256').update(bytes).digest('hex');
-}
-
 interface ParsedEntryBody {
   payloadHashHex: string;
 }
 
 function parseEntryBody(bodyBase64: string): ParsedEntryBody {
-  const bytes = Buffer.from(bodyBase64, 'base64').toString('utf8');
+  const bytes = bytesToUtf8(base64ToBytes(bodyBase64));
   const body = JSON.parse(bytes) as Record<string, unknown>;
   const spec = body['spec'] as Record<string, unknown> | undefined;
   const content = spec?.['content'] as Record<string, unknown> | undefined;
@@ -176,7 +163,7 @@ export async function verifyBundle(
   }
 
   // 3. inclusion_proof: leaf hash = sha256(0x00 || decoded-body-bytes); verify against captured root.
-  const bodyBytes = new Uint8Array(Buffer.from(entry.body, 'base64'));
+  const bodyBytes = base64ToBytes(entry.body);
   const leaf = hashLeaf(bodyBytes);
   const captured = bundle.rekor.inclusion_proof as {
     hashes: string[];
@@ -286,7 +273,7 @@ async function runSdkVerification(
   // The returned uniqueIdentifier must match the statement's predicate.
   let statementUniqueId: string | undefined;
   try {
-    const statementBytes = Buffer.from(bundle.statement, 'hex').toString('utf8');
+    const statementBytes = bytesToUtf8(hexToBytes(bundle.statement));
     const parsed = JSON.parse(statementBytes) as {
       predicate?: { unique_identifier?: string };
     };

@@ -12,8 +12,7 @@
  * user-supplied dates in the index are display-only.
  */
 
-import { createHash } from 'node:crypto';
-
+import { base64ToBytes, bytesToUtf8, sha256Hex } from './encoding.js';
 import { type RekorEntryResponse } from './log/rekor.js';
 import { IN_TOTO_STATEMENT_TYPE } from './statement.js';
 
@@ -58,21 +57,24 @@ export function parseIntotoEntry(entry: RekorEntryResponse): ParsedIntotoEntry {
   if (typeof data !== 'string' || data.length === 0) {
     fail(`entry ${entry.uuid}: no stored attestation`);
   }
-  const attestationBytes = Buffer.from(data, 'base64');
-
-  let bodyObj: unknown;
-  try {
-    bodyObj = JSON.parse(Buffer.from(entry.body, 'base64').toString('utf8'));
-  } catch {
-    fail(`entry ${entry.uuid}: body is not base64 JSON`);
-  }
+  const decoded = (() => {
+    try {
+      return {
+        attestationBytes: base64ToBytes(data),
+        bodyObj: JSON.parse(bytesToUtf8(base64ToBytes(entry.body))) as unknown,
+      };
+    } catch {
+      fail(`entry ${entry.uuid}: attestation/body is not base64 JSON`);
+    }
+  })();
+  const { attestationBytes, bodyObj } = decoded;
   const payloadHash = (
     bodyObj as { spec?: { content?: { payloadHash?: { algorithm?: string; value?: string } } } }
   )?.spec?.content?.payloadHash;
   if (payloadHash?.algorithm !== 'sha256' || typeof payloadHash.value !== 'string') {
     fail(`entry ${entry.uuid}: body has no sha256 payloadHash`);
   }
-  const computed = createHash('sha256').update(attestationBytes).digest('hex');
+  const computed = sha256Hex(attestationBytes);
   if (computed !== payloadHash.value) {
     fail(
       `entry ${entry.uuid}: attestation hash mismatch (computed ${computed}, recorded ${payloadHash.value})`,
@@ -81,7 +83,7 @@ export function parseIntotoEntry(entry: RekorEntryResponse): ParsedIntotoEntry {
 
   let statement: unknown;
   try {
-    statement = JSON.parse(attestationBytes.toString('utf8'));
+    statement = JSON.parse(bytesToUtf8(attestationBytes));
   } catch {
     fail(`entry ${entry.uuid}: attestation is not JSON`);
   }

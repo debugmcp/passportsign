@@ -12,9 +12,8 @@
  * keeping this module pure and unit-testable without the SDK.
  */
 
-import { createHash } from 'node:crypto';
-
 import { canonicalize, canonicalSha256Hex } from './canonical.js';
+import { base64ToBytes, sha256Hex } from './encoding.js';
 import { PassportsignError } from './errors.js';
 import { checkGistControl, type GistEvidence } from './github.js';
 import { buildStatement, type PassportsignStatement } from './statement.js';
@@ -62,14 +61,6 @@ export interface PreparedBinding {
 
 const DEFAULT_GIST_FILENAME = 'passportsign.txt';
 
-function decodeBase64(b64: string): Uint8Array {
-  return new Uint8Array(Buffer.from(b64, 'base64'));
-}
-
-function sha256Hex(bytes: Uint8Array): string {
-  return createHash('sha256').update(bytes).digest('hex');
-}
-
 /**
  * Run the GitHub gist control check, then build the in-toto statement and
  * compute canonical bytes + hashes for the Rekor handoff.
@@ -97,7 +88,7 @@ export async function prepareBinding(
   // 2. Derive proof_blob sha256 from the base64 input.
   let proofBytes: Uint8Array;
   try {
-    proofBytes = decodeBase64(input.proof_blob_b64);
+    proofBytes = base64ToBytes(input.proof_blob_b64);
   } catch (err) {
     throw new PassportsignError(
       'proof_invalid',

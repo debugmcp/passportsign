@@ -16,13 +16,13 @@
  * of leafIndex against treeSize - 1.
  */
 
-import { createHash } from 'node:crypto';
+import { sha256Bytes } from './encoding.js';
 
 export function hashLeaf(data: Uint8Array): Uint8Array {
   const buf = new Uint8Array(1 + data.length);
   buf[0] = 0x00;
   buf.set(data, 1);
-  return new Uint8Array(createHash('sha256').update(buf).digest());
+  return sha256Bytes(buf);
 }
 
 export function hashPair(left: Uint8Array, right: Uint8Array): Uint8Array {
@@ -30,7 +30,7 @@ export function hashPair(left: Uint8Array, right: Uint8Array): Uint8Array {
   buf[0] = 0x01;
   buf.set(left, 1);
   buf.set(right, 1 + left.length);
-  return new Uint8Array(createHash('sha256').update(buf).digest());
+  return sha256Bytes(buf);
 }
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {

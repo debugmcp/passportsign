@@ -31,6 +31,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "default": "./dist/web.js"
+    },
     "./storage/sqlite": {
       "types": "./dist/storage/sqlite.d.ts",
       "default": "./dist/storage/sqlite.js"
@@ -54,7 +58,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@noble/hashes": "^1.8.0",
     "@truestamp/canonify": "1.0.3"
-  },
-  "devDependencies": {}
+  }
 }

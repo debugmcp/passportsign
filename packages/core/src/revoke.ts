@@ -8,9 +8,8 @@
  * is just another in-toto entry, with the `#revocation` predicateType.
  */
 
-import { createHash } from 'node:crypto';
-
 import { canonicalize, canonicalSha256Hex } from './canonical.js';
+import { base64ToBytes, sha256Hex } from './encoding.js';
 import { PassportsignError } from './errors.js';
 import {
   buildRevocationStatement,
@@ -37,21 +36,17 @@ export interface PreparedRevocation {
   proof_blob_sha256_hex: string;
 }
 
-const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
-
 export function prepareRevocation(input: PrepareRevocationInput): PreparedRevocation {
-  if (
-    input.proof_blob_b64.length === 0 ||
-    input.proof_blob_b64.length % 4 !== 0 ||
-    !BASE64.test(input.proof_blob_b64)
-  ) {
-    throw new PassportsignError('proof_invalid', 'proof_blob_b64 is not valid base64');
+  let proofBytes: Uint8Array;
+  try {
+    proofBytes = base64ToBytes(input.proof_blob_b64);
+  } catch (err) {
+    throw new PassportsignError('proof_invalid', 'proof_blob_b64 is not valid base64', err);
   }
-  const proofBytes = new Uint8Array(Buffer.from(input.proof_blob_b64, 'base64'));
   if (proofBytes.length === 0) {
     throw new PassportsignError('proof_invalid', 'proof_blob_b64 decoded to zero bytes');
   }
-  const proof_blob_sha256_hex = createHash('sha256').update(proofBytes).digest('hex');
+  const proof_blob_sha256_hex = sha256Hex(proofBytes);
 
   const statement = buildRevocationStatement({
     github_username: input.github_username,

@@ -1,15 +1,32 @@
 /**
- * Public API of @passportsign/core.
+ * `@passportsign/core/web` — the runtime-neutral surface.
  *
- * Day 1-2: canonical JCS + in-toto statement + bundle format.
- * Day 3-4: §4 error vocabulary + nonce + GitHub gist check +
- *          SQLite cache + bind orchestrator (no Rekor yet).
+ * Everything exported here runs on Node, Cloudflare Workers, and
+ * browsers: no `node:fs`, no `node:crypto`, no `node:sqlite`, no
+ * `Buffer`. The Worker badge service and the browser bind flow import
+ * from this subpath; if something node-only sneaks in, their bundlers
+ * fail loudly at build time — that's the contract this file enforces.
+ *
+ * Node-only counterparts stay on the main entry: `readBundle` /
+ * `writeBundle` (fs), `signEnvelope` (node crypto; use
+ * `signEnvelopeWeb` here), `submitBinding` (composes the node signer;
+ * compose `signEnvelopeWeb` + `RekorClient.submitIntoto` +
+ * `assembleBundle` instead), and the SQLite cache.
  */
 
+export { canonicalize, canonicalSha256Hex } from './canonical.js';
+
 export {
-  canonicalize,
-  canonicalSha256Hex,
-} from './canonical.js';
+  base64ToBytes,
+  bytesToBase64,
+  bytesToHex,
+  bytesToUtf8,
+  hexToBytes,
+  randomBytes,
+  sha256Bytes,
+  sha256Hex,
+  utf8ToBytes,
+} from './encoding.js';
 
 export {
   IN_TOTO_STATEMENT_TYPE,
@@ -33,15 +50,10 @@ export {
   validateBundle,
   type PassportsignBundle,
   type RekorBundleFields,
+  type SubmittableStatement,
 } from './bundle.js';
 
-export { readBundle, writeBundle } from './bundle-fs.js';
-
-export {
-  ERROR_CODES,
-  PassportsignError,
-  type ErrorCode,
-} from './errors.js';
+export { ERROR_CODES, PassportsignError, type ErrorCode } from './errors.js';
 
 export {
   NONCE_BYTES,
@@ -56,12 +68,6 @@ export {
   type GistEvidence,
 } from './github.js';
 
-// SQLite cache is intentionally not re-exported from the main entry —
-// `node:sqlite` doesn't bundle cleanly (esbuild strips the `node:` prefix
-// and there's no public `sqlite` npm package by that name). Consumers
-// who need it should import from `@passportsign/core/storage/sqlite`
-// directly. The v0 CLI doesn't use the cache; rebuild is v1 work.
-
 export {
   prepareBinding,
   type PrepareBindingDeps,
@@ -71,14 +77,18 @@ export {
 } from './bind.js';
 
 export {
+  prepareRevocation,
+  type PrepareRevocationInput,
+  type PreparedRevocation,
+} from './revoke.js';
+
+export {
   DSSE_VERSION,
   IN_TOTO_PAYLOAD_TYPE,
   pae,
-  signEnvelope,
   type DsseEnvelope,
   type DsseSignature,
-  type SignEnvelopeResult,
-} from './dsse.js';
+} from './dsse-common.js';
 
 export {
   p1363ToDer,
@@ -95,19 +105,6 @@ export {
   type RekorClient,
   type RekorEntryResponse,
 } from './log/rekor.js';
-
-export {
-  submitBinding,
-  type SubmitBindingDeps,
-  type SubmitBindingResult,
-  type SubmittableStatement,
-} from './submit.js';
-
-export {
-  prepareRevocation,
-  type PrepareRevocationInput,
-  type PreparedRevocation,
-} from './revoke.js';
 
 export {
   hashLeaf,

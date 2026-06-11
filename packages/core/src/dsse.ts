@@ -18,43 +18,15 @@
 
 import { createSign, generateKeyPairSync } from 'node:crypto';
 
-export const DSSE_VERSION = 'DSSEv1';
-export const IN_TOTO_PAYLOAD_TYPE = 'application/vnd.in-toto+json';
+import { pae, type DsseEnvelope } from './dsse-common.js';
 
-export interface DsseSignature {
-  /** Single-base64 of the raw signature bytes. */
-  sig: string;
-  /** PEM-encoded SubjectPublicKeyInfo. */
-  publicKey: string;
-  /** Optional key identifier. Omit (don't pass empty string) when not set. */
-  keyid?: string;
-}
-
-export interface DsseEnvelope {
-  /** Media type of the payload (e.g. `application/vnd.in-toto+json`). */
-  payloadType: string;
-  /** Single-base64 of the raw payload bytes. */
-  payload: string;
-  signatures: DsseSignature[];
-}
-
-/**
- * DSSE Pre-Authentication Encoding (PAE):
- *
- *   "DSSEv1" SP LEN(type) SP type SP LEN(body) SP body
- *
- * Where SP is a single 0x20 space, LEN is the ASCII-decimal length of
- * the following byte string.
- */
-export function pae(type: string, body: Uint8Array): Uint8Array {
-  const typeBytes = new TextEncoder().encode(type);
-  const prefix = `${DSSE_VERSION} ${typeBytes.length} ${type} ${body.length} `;
-  const prefixBytes = new TextEncoder().encode(prefix);
-  const out = new Uint8Array(prefixBytes.length + body.length);
-  out.set(prefixBytes);
-  out.set(body, prefixBytes.length);
-  return out;
-}
+export {
+  DSSE_VERSION,
+  IN_TOTO_PAYLOAD_TYPE,
+  pae,
+  type DsseEnvelope,
+  type DsseSignature,
+} from './dsse-common.js';
 
 export interface SignEnvelopeResult {
   envelope: DsseEnvelope;
