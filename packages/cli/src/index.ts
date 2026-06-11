@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 
 import { runBindCommand } from './commands/bind.js';
+import { runListCommand } from './commands/list.js';
 import { runRevokeCommand } from './commands/revoke.js';
 import { runVerifyCommand } from './commands/verify.js';
 
@@ -30,6 +31,17 @@ program
       noRekorRefetch: opts.rekorRefetch === false,
       gistRecheck: opts.gistRecheck ?? false,
     });
+    process.exit(code);
+  });
+
+program
+  .command('list')
+  .argument('<github_username>')
+  .option('--entry <uuid>', 'inspect a specific Rekor entry instead of resolving the index')
+  .option('--json', 'emit the raw lookup result as JSON')
+  .description('List a user\'s published bindings with live state (active / stale / revoked).')
+  .action(async (githubUsername: string, opts: { entry?: string; json?: boolean }) => {
+    const code = await runListCommand(githubUsername, opts);
     process.exit(code);
   });
 

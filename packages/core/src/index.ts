@@ -152,6 +152,15 @@ export {
 } from './classify.js';
 
 export {
+  lookupBindings,
+  lookupFromIndex,
+  type LookupBindingsDeps,
+  type LookupDeps,
+  type LookupEntryProblem,
+  type LookupResult,
+} from './lookup.js';
+
+export {
   verifyBundle,
   type BundleVerifyResult,
   type CheckResult,
