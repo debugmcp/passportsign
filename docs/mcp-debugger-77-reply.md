@@ -1,8 +1,6 @@
----
-Posted on https://github.com/debugmcp/mcp-debugger/issues/77 on
-2026-05-26 from @cynarlab. The text below mirrors what was posted,
-with a couple of small polishes noted inline as alternatives.
----
+> Posted on https://github.com/debugmcp/mcp-debugger/issues/77 on
+> 2026-05-26 from @cynarlab. The text below mirrors what was posted,
+> with a couple of small polishes noted inline as alternatives.
 
 Hello -
 
