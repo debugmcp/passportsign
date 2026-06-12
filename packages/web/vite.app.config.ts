@@ -12,6 +12,10 @@ export default defineConfig({
   build: {
     outDir: resolve(here, 'dist-app'),
     emptyOutDir: true,
+    // Keep every generated file under /bind/* — on the custom domain
+    // only /bind*, /badge/*, /verify/* route to the Worker, and the
+    // default /assets/* would collide with GitHub Pages' own assets.
+    assetsDir: 'bind/assets',
     rollupOptions: {
       input: {
         bind: resolve(here, 'app/bind/index.html'),

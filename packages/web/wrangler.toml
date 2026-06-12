@@ -18,4 +18,5 @@ directory = "dist-app"
 # routes = [
 #   { pattern = "passportsign.dev/badge/*", zone_name = "passportsign.dev" },
 #   { pattern = "passportsign.dev/verify/*", zone_name = "passportsign.dev" },
+#   { pattern = "passportsign.dev/bind*", zone_name = "passportsign.dev" },
 # ]
