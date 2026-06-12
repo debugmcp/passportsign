@@ -1,22 +1,22 @@
 # passportsign hosted surface (roadmap v0.5.4).
 #
-# First deploys go to <name>.workers.dev. Once the passportsign.dev
-# zone is on Cloudflare, uncomment the routes below — everything not
-# matched by a route keeps passing through to GitHub Pages, which
-# continues to serve the landing page and /index/* operator overlay.
+# Deploys serve <name>.workers.dev plus the zone routes below.
+# Everything not matched by a route passes through to GitHub Pages,
+# which continues to serve the landing page and /index/* operator
+# overlay. (Zone moved to Cloudflare 2026-06-12.)
 
 name = "passportsign-web"
 main = "src/index.ts"
 compatibility_date = "2026-05-01"
+
+routes = [
+  { pattern = "passportsign.dev/badge/*", zone_name = "passportsign.dev" },
+  { pattern = "passportsign.dev/verify/*", zone_name = "passportsign.dev" },
+  { pattern = "passportsign.dev/bind*", zone_name = "passportsign.dev" },
+]
 
 # The Vite-built browser app (/bind). Static assets are served first
 # for matching GET paths; /badge/* and /verify/* have no assets, so
 # they fall through to the Worker. Run `pnpm build` before deploy.
 [assets]
 directory = "dist-app"
-
-# routes = [
-#   { pattern = "passportsign.dev/badge/*", zone_name = "passportsign.dev" },
-#   { pattern = "passportsign.dev/verify/*", zone_name = "passportsign.dev" },
-#   { pattern = "passportsign.dev/bind*", zone_name = "passportsign.dev" },
-# ]
