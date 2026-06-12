@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "github_username": "debugmcpdev",
+  "bindings": [
+    {
+      "rekor_entry_hash": "108e9186e8c5677ae2d7a1468d48646ce3f7c1afa9b633a4c2eca11d2f39a4a45652d581c8493366",
+      "bound_at": "2026-06-12T23:28:24.343Z"
+    }
+  ],
+  "revocations": []
+}

@@ -9,11 +9,19 @@ operator infrastructure we deliberately deferred.
 This roadmap describes **what each milestone enables**, not when it
 ships.
 
-> **Status update (2026-06-11).** v0.5.2 (revocation), v0.5.3
-> (`list`), v0.5.5 (index convention) and v0.5.4 (Worker badge
-> service, code complete — deploy pending DNS) landed, plus v1.0.1
-> (browser bind flow, code complete — staging real-passport run
-> pending). Two findings reshaped the plan:
+> **Status update (2026-06-12).** v0.5 is live: revocation (v0.5.2),
+> `list` (v0.5.3), the index convention (v0.5.5), and the Worker
+> badge service (v0.5.4) deployed at `passportsign.dev/badge/*` —
+> `@passportsign/{core,cli}@0.2.0` on npm. **v1.0.1 SHIPPED**: the
+> browser bind flow at `passportsign.dev/bind` passed its ship gate
+> with a real-passport production bind (`@debugmcpdev`, entry
+> `108e9186…493366`, deliberately linked to the `@cynarlab` binding
+> via the same passport — the first public linked cluster). The gate
+> caught two browser-only bugs (bridge-origin forwarding from the
+> SDK patch; fetch this-binding in the Rekor client), both fixed
+> with regression tests.
+>
+> Earlier findings (2026-06-11) that reshaped the plan:
 >
 > 1. **The index convention had to come first, not last.** Public
 >    Rekor can't be searched by predicateType, so

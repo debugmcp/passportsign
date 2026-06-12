@@ -113,8 +113,8 @@ any step.
 | Version | Scope | Status |
 |---|---|---|
 | **v0** | CLI proof-of-concept: bind, verify, badge generation | **shipped 2026-05-25** |
-| **v0.5** | `revoke` + `list` commands, the `passportsign-index.json` discovery convention, live-state badge service (`passportsign.dev/badge/<user>.svg` — green/stale/revoked) and `/verify/<user>` page on a stateless edge Worker | **code complete 2026-06-11**, hosted rollout in progress |
-| **v1.0** | Browser bind flow at `passportsign.dev/bind` — phone + browser, no CLI; fully static (the page talks to GitHub and Rekor directly and verifies the inclusion proof locally) | **code complete 2026-06-11**, real-passport staging run pending |
+| **v0.5** | `revoke` + `list` commands, the `passportsign-index.json` discovery convention, live-state badge service (`passportsign.dev/badge/<user>.svg` — green/stale/revoked) and `/verify/<user>` page on a stateless edge Worker | **live 2026-06-12** |
+| **v1.0.1** | Browser bind flow at [`passportsign.dev/bind`](https://passportsign.dev/bind) — phone + browser, no CLI; fully static (the page talks to GitHub and Rekor directly and verifies the inclusion proof locally) | **shipped 2026-06-12** — second real-passport binding ([@debugmcpdev](https://passportsign.dev/verify/debugmcpdev), publicly linked to [@cynarlab](https://passportsign.dev/verify/cynarlab) via the same passport) |
 | v1.x | Slack/Discord bot mention-resolvers, federation deployment kit, standalone `@passportsign/verify` package, more badge styles | planned |
 | v2 | Federated operators, org-level bindings, additional witness recruitment | planned |
 
