@@ -47,7 +47,9 @@ function explain(err: unknown): string {
       username_invalid: 'That does not look like a valid GitHub username.',
       log_submission_failed: 'Rekor (the public log) rejected or could not be reached. Nothing was published; try again.',
     };
-    return hints[err.code] ?? `${err.code}: ${err.message}`;
+    const hint = hints[err.code];
+    // Keep the underlying detail visible — it's the only field diagnostic.
+    return hint ? `${hint}\n(${err.message})` : `${err.code}: ${err.message}`;
   }
   return err instanceof Error ? err.message : String(err);
 }

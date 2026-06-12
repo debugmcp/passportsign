@@ -76,7 +76,10 @@ export class PublicSigstoreRekorClient implements RekorClient {
 
   constructor(opts: PublicSigstoreRekorClientOptions = {}) {
     this.baseUrl = opts.baseUrl ?? DEFAULT_REKOR_BASE_URL;
-    this.fetchImpl = opts.fetch ?? globalThis.fetch;
+    // Wrap rather than store the global directly: `this.fetchImpl(...)`
+    // would otherwise invoke browser fetch with `this` = the client,
+    // which throws "Illegal invocation" (Node's fetch doesn't care).
+    this.fetchImpl = opts.fetch ?? ((input, init) => globalThis.fetch(input, init));
   }
 
   async submitIntoto(envelope: DsseEnvelope): Promise<RekorEntryResponse> {
