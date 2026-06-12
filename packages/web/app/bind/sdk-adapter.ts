@@ -15,6 +15,33 @@ import { DOMAIN, type BindProgress, type SdkScanResult } from './controller.js';
 
 const POLICY_ID = 'nationality-disclose';
 const SCAN_TIMEOUT_MS = 5 * 60 * 1000;
+const CONFIG_RETRIES = 3;
+
+/**
+ * The SDK fetches the project's dashboard config with a 10s abort —
+ * which loses to cold starts on the dashboard API. The failure is
+ * cached as "policy unavailable" on the instance, so retry with a
+ * fresh instance after a beat rather than making the user reload.
+ */
+async function buildRequestWithRetry(onProgress: (p: BindProgress) => void) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= CONFIG_RETRIES; attempt++) {
+    try {
+      const zkPassport = new ZKPassport(DOMAIN);
+      const queryBuilder = await zkPassport.request({});
+      return queryBuilder.policy(POLICY_ID).done();
+    } catch (err) {
+      lastError = err;
+      if (!/dashboard config/i.test(String(err)) || attempt === CONFIG_RETRIES) throw err;
+      onProgress({
+        phase: 'scan',
+        message: `ZKPassport config service is waking up — retrying (${attempt}/${CONFIG_RETRIES - 1})…`,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 2500 * attempt));
+    }
+  }
+  throw lastError;
+}
 
 export interface ScanHandle {
   /** Deep-link URL — render as QR and as a same-device link. */
@@ -26,9 +53,7 @@ export async function startScan(
   discloseCountry: boolean,
   onProgress: (progress: BindProgress) => void,
 ): Promise<ScanHandle> {
-  const zkPassport = new ZKPassport(DOMAIN);
-  const queryBuilder = await zkPassport.request({});
-  const built = queryBuilder.policy(POLICY_ID).done();
+  const built = await buildRequestWithRetry(onProgress);
   const { url, query, onRequestReceived, onGeneratingProof, onProofGenerated, onResult, onReject, onError } = built;
 
   const proofs: unknown[] = [];
