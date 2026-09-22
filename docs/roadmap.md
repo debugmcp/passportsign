@@ -36,6 +36,12 @@ ships.
 >    Rekor directly and verifies the inclusion proof locally.
 >
 > Still blocked: v0.5.1 (upstream PR #212 remains open).
+>
+> **Hosting incident (2026-09-22).** GitHub Pages couldn't renew its
+> certificate behind the Cloudflare proxy; the old one expired
+> 2026-08-23 and every non-Worker path returned 526 — including the
+> operator overlay, which turned every badge `unknown`. Durable fix
+> scoped as v0.5.6.
 
 ---
 
@@ -153,6 +159,48 @@ no central registration needed.
   bound profile, no PR to the project required
 - Self-hosted bindings stay discoverable
 - Federation falls out naturally
+
+### v0.5.6 — Single-origin hosting (retire GitHub Pages)
+
+`passportsign.dev` currently has two origins: the Worker serves
+`/badge/*`, `/verify/*`, and `/bind*`, and everything else passes
+through Cloudflare to GitHub Pages (the landing page and the
+`docs/index/` operator overlay). The split is structurally unsound:
+GitHub Pages won't issue or renew its Let's Encrypt certificate while
+the domain is proxied, and the Worker routes require the proxy. The
+pre-migration certificate expired 2026-08-23; Cloudflare then
+returned 526 on every passthrough path, and because the badge
+handler fetched the overlay through that same passthrough, every
+badge fell back to `unknown` (fail-closed, as designed). The interim
+mitigation is to run the zone in Full rather than Full (strict) SSL
+mode, which stops validating a certificate GitHub can no longer keep
+valid.
+
+Move the remaining surface into the Worker so the zone has no origin:
+
+1. Build the public pages from `docs/` (landing page, spec) into the
+   Worker's static assets — Jekyll renders them today, so this needs
+   a small Markdown → HTML step and a deliberate list of which pages
+   are published.
+2. Serve the operator overlay without a self-fetch: the badge handler
+   should read it through the assets binding (or straight from
+   `raw.githubusercontent.com`), never by fetching its own zone.
+   Keep `passportsign.dev/index/<user>.json` resolving for consumers.
+3. Keep "merged = live" for the overlay. Pages republishes on every
+   push today; with Worker assets, an overlay revocation would sit
+   undeployed until someone runs `wrangler deploy`. Deploy on push to
+   `main` (GitHub Action or Workers Builds), or source the overlay
+   from `raw.githubusercontent.com` as above.
+4. Replace the three zone routes with `passportsign.dev/*` and add a
+   `www` → apex redirect (Pages handles that today).
+5. Unset the Pages custom domain and return the zone to Full (strict).
+
+**What it enables**:
+
+- No origin certificate to expire, so this failure can't recur
+- Badge state no longer depends on a second hosting provider
+- Full (strict) TLS on every hop, including the revocation overlay
+- One deploy ships the whole site
 
 ---
 
@@ -343,6 +391,7 @@ v0.5.2 Revocation    v0.5.3 `list`        v0.5.5 Index convention
                                        ▼
                           v0.5.4 Worker badge service
                                        │
+                                       ├──────► v0.5.6 Single-origin hosting
                                        ▼
                               v1.0.1 Web bind flow
                                        │
