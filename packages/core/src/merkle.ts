@@ -75,7 +75,9 @@ interface ProofDecomposition {
 }
 
 function decompInclProof(leafIndex: number, treeSize: number): ProofDecomposition {
-  const inner = bitLength(leafIndex ^ (treeSize - 1));
+  // BigInt, not `^`: JS bitwise operators coerce to signed 32-bit ints,
+  // and public Rekor's active shard passed 2^31 leaves in 2026.
+  const inner = bitLength(Number(BigInt(leafIndex) ^ BigInt(treeSize - 1)));
   const border = popcount(Math.floor(leafIndex / Math.pow(2, inner)));
   return { inner, border };
 }
@@ -161,7 +163,8 @@ export function verifyConsistency(
 
   let seed: Uint8Array;
   let start: number;
-  if ((firstSize & (firstSize - 1)) !== 0) {
+  // Power-of-two test in BigInt for the same 32-bit reason as decompInclProof.
+  if ((BigInt(firstSize) & BigInt(firstSize - 1)) !== 0n) {
     if (proof.length === 0) return false;
     seed = proof[0]!;
     start = 1;

@@ -1,11 +1,46 @@
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 
+import { base64ToBytes, hexToBytes } from '../src/encoding.js';
 import {
   hashLeaf,
   hashPair,
   verifyInclusion,
   verifyConsistency,
 } from '../src/merkle.js';
+
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
+
+interface ConsistencyCase {
+  firstSize: number;
+  firstRoot: string;
+  secondSize: number;
+  secondRoot: string;
+  hashes: string[];
+}
+
+/**
+ * Live rekor.sigstore.dev proofs from after the active shard passed 2^31
+ * leaves: the cynarlab entry's inclusion proof, and consistency proofs
+ * ending at the same tree size. JS bitwise operators truncate to 32 bits,
+ * so these catch any `^`/`&` on tree sizes or indices.
+ */
+const PAST_2POW31 = JSON.parse(
+  readFileSync(join(FIXTURES, 'live-rekor-proofs-past-2pow31.json'), 'utf8'),
+) as {
+  entry: Record<
+    string,
+    {
+      body: string;
+      verification: {
+        inclusionProof: { logIndex: number; treeSize: number; rootHash: string; hashes: string[] };
+      };
+    }
+  >;
+  consistency: ConsistencyCase[];
+};
 
 // Build a deterministic Merkle tree from leaf data so tests have a
 // trusted source for roots and proofs.
@@ -100,6 +135,29 @@ describe('verifyInclusion', () => {
     expect(verifyInclusion(leaves[0]!, 7, 7, [], root)).toBe(false);
     expect(verifyInclusion(leaves[0]!, -1, 7, [], root)).toBe(false);
   });
+
+  describe('live Rekor proof, tree size > 2^31', () => {
+    const entry = Object.values(PAST_2POW31.entry)[0]!;
+    const proof = entry.verification.inclusionProof;
+    const leaf = hashLeaf(base64ToBytes(entry.body));
+    const hashes = proof.hashes.map(hexToBytes);
+
+    it('fixture really is past 2^31', () => {
+      expect(proof.treeSize).toBeGreaterThan(2 ** 31);
+    });
+
+    it('verifies', () => {
+      expect(
+        verifyInclusion(leaf, proof.logIndex, proof.treeSize, hashes, hexToBytes(proof.rootHash)),
+      ).toBe(true);
+    });
+
+    it('still rejects a wrong root', () => {
+      expect(verifyInclusion(leaf, proof.logIndex, proof.treeSize, hashes, new Uint8Array(32))).toBe(
+        false,
+      );
+    });
+  });
 });
 
 describe('verifyConsistency', () => {
@@ -159,5 +217,35 @@ describe('verifyConsistency', () => {
     const leaves = Array.from({ length: 5 }, (_, i) => leafFor(i));
     const root = buildTree(leaves);
     expect(verifyConsistency(5, 3, root, root, [])).toBe(false);
+  });
+
+  describe('live Rekor proofs, second size > 2^31', () => {
+    it.each(PAST_2POW31.consistency.map((c) => [c.firstSize, c.secondSize, c] as const))(
+      'verifies (first=%i, second=%i)',
+      (first, second, c) => {
+        expect(
+          verifyConsistency(
+            first,
+            second,
+            hexToBytes(c.firstRoot),
+            hexToBytes(c.secondRoot),
+            c.hashes.map(hexToBytes),
+          ),
+        ).toBe(true);
+      },
+    );
+
+    it('still rejects a tampered second root', () => {
+      const c = PAST_2POW31.consistency[0]!;
+      expect(
+        verifyConsistency(
+          c.firstSize,
+          c.secondSize,
+          hexToBytes(c.firstRoot),
+          new Uint8Array(32),
+          c.hashes.map(hexToBytes),
+        ),
+      ).toBe(false);
+    });
   });
 });
