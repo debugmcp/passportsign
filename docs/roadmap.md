@@ -37,11 +37,21 @@ ships.
 >
 > Still blocked: v0.5.1 (upstream PR #212 remains open).
 >
-> **Hosting incident (2026-09-22).** GitHub Pages couldn't renew its
-> certificate behind the Cloudflare proxy; the old one expired
-> 2026-08-23 and every non-Worker path returned 526 — including the
-> operator overlay, which turned every badge `unknown`. Durable fix
-> scoped as v0.5.6.
+> **Incident (diagnosed 2026-09-22): two independent failures.**
+>
+> 1. **Merkle verification broke when Rekor passed 2^31 leaves.**
+>    The active shard crossed 2^31 on 2026-07-28; `merkle.ts` used
+>    JS bitwise operators (32-bit) on tree sizes, so every inclusion
+>    proof against the live tree failed. Badges went `unknown`,
+>    `/verify` listed bindings as invalid, the `/bind` page errored
+>    *after* its Rekor submission, and `passportsign verify`'s
+>    consistency check failed. Fixed in 0.2.1 with regression tests
+>    on live proofs past 2^31.
+> 2. **GitHub Pages couldn't renew its certificate behind the
+>    Cloudflare proxy.** The old one expired 2026-08-23 and every
+>    non-Worker path returned 526, including the operator overlay the
+>    badge service reads. Mitigated by setting the zone's SSL mode to
+>    Full; durable fix scoped as v0.5.6.
 
 ---
 
@@ -170,8 +180,8 @@ GitHub Pages won't issue or renew its Let's Encrypt certificate while
 the domain is proxied, and the Worker routes require the proxy. The
 pre-migration certificate expired 2026-08-23; Cloudflare then
 returned 526 on every passthrough path, and because the badge
-handler fetched the overlay through that same passthrough, every
-badge fell back to `unknown` (fail-closed, as designed). The interim
+handler fetched the overlay through that same passthrough, that alone
+forced every badge to `unknown` (fail-closed, as designed). The interim
 mitigation is to run the zone in Full rather than Full (strict) SSL
 mode, which stops validating a certificate GitHub can no longer keep
 valid.
