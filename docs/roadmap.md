@@ -52,6 +52,9 @@ ships.
 >    non-Worker path returned 526, including the operator overlay the
 >    badge service reads. Mitigated by setting the zone's SSL mode to
 >    Full; durable fix scoped as v0.5.6.
+>
+> Found alongside, still open: `passportsign verify` rejects bundles
+> older than 7 days (zkPassport SDK freshness check) — v0.5.7.
 
 ---
 
@@ -211,6 +214,27 @@ Move the remaining surface into the Worker so the zone has no origin:
 - Badge state no longer depends on a second hosting provider
 - Full (strict) TLS on every hop, including the revocation overlay
 - One deploy ships the whole site
+
+### v0.5.7 — Re-verify bundles older than a week
+
+`passportsign verify` fails the zkPassport check on any bundle more
+than 7 days old ("The date used to check the validity of the ID falls
+out of the validity period"). The SDK's `verify()` compares the date
+committed in the proof against *today*, with a default `validity` of
+7 days — right for a live login, wrong for re-verifying a historical
+attestation. The v0 evidence bundle has failed this check since
+roughly 2026-06-01. (The badge service and `/verify` page are
+unaffected; they don't re-run the ZK proof.)
+
+Fix direction: judge freshness at log time, not verify time. Rekor's
+`integratedTime` is authoritative, so pass the SDK
+`validity = (now − integratedTime) + 7 days` — equivalent to requiring
+the proof was at most 7 days old when it was logged. No dependencies.
+
+**What it enables**:
+
+- The spec's core promise — anyone can re-verify from scratch — holds
+  for bundles of any age, not just their first week
 
 ---
 
